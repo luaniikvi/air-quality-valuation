@@ -47,7 +47,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto pt-6 text-xs text-slate-500">
-        <div>v1.0.2</div>
+        <div>v1.0.8</div>
         <div className="mt-1">ESP32 • MQTT • MySQL</div>
       </div>
     </aside>

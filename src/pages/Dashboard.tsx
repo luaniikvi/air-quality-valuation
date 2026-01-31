@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, /*useMemo,*/ useState } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import MetricCard from '../components/cards/MetricCard';
 import StatusBadge from '../components/cards/StatusBadge';
@@ -9,7 +9,7 @@ import { hasDeviceId } from '../utils/deviceGuard';
 import { useDeviceContext } from '../components/layout/DeviceProvider';
 import { getLatest } from '../api/sensorApi';
 import type { Reading } from '../types';
-import { fmtDateTime } from '../utils/format';
+// import { fmtDateTime } from '../utils/format';
 import { aqiLabel, aqiToCardColors } from '../utils/aqi';
 
 function bannerCopy(level: 'OK' | 'WARN' | 'DANGER') {
@@ -78,7 +78,6 @@ export default function Dashboard() {
   }, [deviceId]);
 
   const level = latest?.level || 'OK';
-  const sub = useMemo(() => (latest?.ts ? `Last update: ${fmtDateTime(latest.ts)}` : ''), [latest?.ts]);
 
   const aqi = typeof latest?.aqi === 'number' ? latest!.aqi! : null;
   const aqiColors = aqi != null ? aqiToCardColors(aqi) : null;
