@@ -16,7 +16,7 @@ const METRIC_COLORS: Record<string, string> = {
   hum: '#3b82f6', // blue
   gas: '#a855f7', // purple
   dust: '#eab308', // yellow
-  aqi: '#ef4444' // red
+  aqi: '#44ef58' // red
 };
 
 function PencilIcon({ className }: { className?: string }) {
@@ -202,9 +202,8 @@ export default function History() {
                   return (
                     <button
                       key={m.key}
-                      className={`rounded-full border px-3 py-1 text-sm ${
-                        active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'
-                      }`}
+                      className={`rounded-full border px-3 py-1 text-sm ${active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'
+                        }`}
                       onClick={() => {
                         setMetrics((prev) => {
                           if (prev.includes(m.key)) return prev.filter((x) => x !== m.key);
@@ -245,11 +244,10 @@ export default function History() {
             <div className="flex items-center gap-2">
               <div className="text-sm font-semibold text-slate-700">Raw data (Dữ liệu thô)</div>
               <button
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  showRaw
-                    ? 'border-slate-900 bg-slate-900 text-white'
-                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                }`}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${showRaw
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
                 onClick={() => setShowRaw((v) => !v)}
                 title={showRaw ? 'Ẩn dữ liệu thô' : 'Hiện dữ liệu thô'}
               >

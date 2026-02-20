@@ -35,8 +35,7 @@ export default function Sidebar() {
             key={it.to}
             to={it.to}
             className={({ isActive }) =>
-              `rounded-xl px-3 py-2 text-sm ${
-                isActive ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-600 hover:bg-slate-50'
+              `rounded-xl px-3 py-2 text-sm ${isActive ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-600 hover:bg-slate-50'
               }`
             }
             end={it.to === '/'}
@@ -47,7 +46,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto pt-6 text-xs text-slate-500">
-        <div>v1.0.8</div>
+        <div>v3.1.8</div>
         <div className="mt-1">ESP32 • MQTT • MySQL</div>
       </div>
     </aside>
