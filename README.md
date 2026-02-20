@@ -27,6 +27,6 @@ npm run dev
 - `GET /api/settings?device_id=...` → `ThresholdSettings`
 - `POST /api/settings` body: `ThresholdSettings` → `{ ok: true }`
 
-## 4) Gợi ý luồng realtime
+## 4) Luồng realtime
 Hiện tại web dùng **polling** (2s) ở trang Realtime.
 Nếu muốn nâng cấp: dùng WebSocket / Socket.IO để backend push dữ liệu.
