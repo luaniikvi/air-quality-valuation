@@ -1,6 +1,6 @@
 import type { AlertItem, Device, HistoryQuery, HistoryResponse, Reading, ThresholdSettings } from '../types';
 import { isoNow } from '../utils/format';
-import { computeAqi, aqiLevel } from '../utils/aqi';
+import { computeIaqIndex, iaqLevelFromIndex } from '../utils/iaq';
 
 const devices: Device[] = [
   { device_id: 'esp32-001', name: 'ESP32 Phòng khách', location: 'Livingroom', status: 'online', last_seen: isoNow() },
@@ -12,8 +12,8 @@ const settingsMap: Record<string, ThresholdSettings> = {
     device_id: 'esp32-001',
     gas_warn: 800,
     gas_danger: 1200,
-    dust_warn: 80,
-    dust_danger: 150,
+    dust_warn: 0.08,
+    dust_danger: 0.15,
     temp_low: 18,
     temp_high: 32,
     hum_low: 35,
@@ -23,8 +23,8 @@ const settingsMap: Record<string, ThresholdSettings> = {
     device_id: 'esp32-002',
     gas_warn: 800,
     gas_danger: 1200,
-    dust_warn: 80,
-    dust_danger: 150,
+    dust_warn: 0.08,
+    dust_danger: 0.15,
     temp_low: 18,
     temp_high: 32,
     hum_low: 35,
@@ -60,18 +60,18 @@ function makeReading(device_id: string, ts = isoNow()): Reading {
   const base: Reading = prev
     ? { ...prev, ts }
     : {
-        device_id,
-        ts,
-        temp: 25 + rand(3),
-        hum: 55 + rand(10),
-        gas: 500 + rand(300),
-        dust: 30 + rand(20)
-      };
+      device_id,
+      ts,
+      temp: 25 + rand(3),
+      hum: 55 + rand(10),
+      gas: 500 + rand(300),
+      dust: 0.03 + rand(0.03)
+    };
 
   const temp = step(base.temp ?? 25, 0.2, 10, 45);
   const hum = step(base.hum ?? 55, 0.8, 10, 95);
   const gas = step(base.gas ?? 600, 15, 200, 2000);
-  const dust = step(base.dust ?? 35, 1.5, 0, 300);
+  const dust = step(base.dust ?? 0.04, 0.002, 0, 0.3);
 
   const reading: Reading = {
     device_id,
@@ -79,12 +79,12 @@ function makeReading(device_id: string, ts = isoNow()): Reading {
     temp: Math.round(temp * 10) / 10,
     hum: Math.round(hum * 10) / 10,
     gas: Math.round(gas),
-    dust: Math.round(dust),
+    dust: Math.round(dust * 1000) / 1000,
     rssi: -45 - Math.round(rand(20))
   };
-
-  reading.aqi = computeAqi(reading);
-  reading.level = aqiLevel(reading.aqi);
+  const iaq = computeIaqIndex(reading);
+  reading.iaq = iaq;
+  reading.level = iaqLevelFromIndex(iaq);
 
   lastByDevice[device_id] = reading;
   return reading;
@@ -186,10 +186,10 @@ export async function getAlerts(device_id: string, from: string, to: string): Pr
       id: `${device_id}-${t}-${i}`,
       device_id,
       ts,
-      type: r.level === 'OK' ? 'system' : 'aqi',
-      value: r.aqi,
+      type: r.level === 'SAFE' ? 'system' : 'iaq',
+      value: r.iaq,
       level,
-      message: r.level === 'OK' ? 'Heartbeat ok' : `AQI ${r.aqi} (${r.level})`
+      message: r.level === 'SAFE' ? 'Heartbeat ok' : `iaq ${r.iaq} (${r.level})`
     });
   }
 

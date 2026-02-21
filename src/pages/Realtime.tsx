@@ -10,6 +10,7 @@ import { useDeviceContext } from '../components/layout/DeviceProvider';
 import { getLatest } from '../api/sensorApi';
 import type { Reading } from '../types';
 import { fmtTimeShort, fmtDateTime } from '../utils/format';
+import { computeIaqIndex, iaqLevelFromIndex } from '../utils/iaq';
 
 export default function Realtime() {
   const { deviceId } = useDeviceContext();
@@ -17,19 +18,18 @@ export default function Realtime() {
 
   const [latest, setLatest] = useState<Reading | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [aqiSeries, setAqiSeries] = useState<Point[]>([]);
+  const [iaqSeries, setIaqSeries] = useState<Point[]>([]);
   const [dustSeries, setDustSeries] = useState<Point[]>([]);
 
   const fetcher = useCallback(async () => {
     if (!hasDeviceId(deviceId)) throw new Error('No device selected');
-    const r = await getLatest(deviceId);
-    return r;
+    return await getLatest(deviceId);
   }, [deviceId]);
 
   useEffect(() => {
     if (!hasDeviceId(deviceId)) {
       setLatest(null);
-      setAqiSeries([]);
+      setIaqSeries([]);
       setDustSeries([]);
       setError(null);
       return;
@@ -45,8 +45,9 @@ export default function Realtime() {
         setError(null);
 
         const label = fmtTimeShort(r.ts);
-        if (typeof r.aqi === 'number') {
-          setAqiSeries((prev) => [...prev, { label, value: r.aqi! }].slice(-180));
+        const iaq = typeof r.iaq === 'number' ? r.iaq : computeIaqIndex(r);
+        if (typeof iaq === 'number') {
+          setIaqSeries((prev) => [...prev, { label, value: iaq }].slice(-180));
         }
         if (typeof r.dust === 'number') {
           setDustSeries((prev) => [...prev, { label, value: r.dust! }].slice(-180));
@@ -57,7 +58,7 @@ export default function Realtime() {
     }
 
     // reset series when device changes
-    setAqiSeries([]);
+    setIaqSeries([]);
     setDustSeries([]);
     setLatest(null);
 
@@ -70,7 +71,17 @@ export default function Realtime() {
     };
   }, [fetcher, deviceId]);
 
-  const level = latest?.level || 'OK';
+  const iaqValue = useMemo(() => {
+    if (!latest) return undefined;
+    return typeof latest.iaq === 'number' ? latest.iaq : computeIaqIndex(latest);
+  }, [latest]);
+
+  const level = useMemo<'SAFE' | 'WARN' | 'DANGER'>(() => {
+    const raw = latest?.level;
+    if (raw === 'SAFE' || raw === 'WARN' || raw === 'DANGER') return raw;
+    if (typeof iaqValue === 'number') return iaqLevelFromIndex(iaqValue);
+    return 'SAFE';
+  }, [latest?.level, iaqValue]);
 
   const sub = useMemo(() => {
     if (!latest?.ts) return '';
@@ -93,15 +104,15 @@ export default function Realtime() {
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             <MetricCard title="Temperature" value={latest?.temp} unit="°C" sub={sub} />
             <MetricCard title="Humidity" value={latest?.hum} unit="%" sub={sub} />
-            <MetricCard title="AQI (demo)" value={latest?.aqi} />
+            <MetricCard title="IAQ" value={iaqValue} />
             <MetricCard title="Gas" value={latest?.gas} unit="ppm" />
-            <MetricCard title="Dust" value={latest?.dust} unit="µg/m³" />
+            <MetricCard title="Dust" value={latest?.dust} unit="mg/m³" />
             <MetricCard title="WiFi RSSI" value={latest?.rssi} unit="dBm" />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <LineChart title="AQI (live)" points={aqiSeries} yLabel="AQI" />
-            <LineChart title="Dust (live)" points={dustSeries} yLabel="µg/m³" />
+            <LineChart title="IAQ (live)" points={iaqSeries} yLabel="IAQ" />
+            <LineChart title="Dust (live)" points={dustSeries} yLabel="mg/m³" />
           </div>
         </>
       )}

@@ -2,7 +2,7 @@
 export type Telemetry = {
     deviceId: string;
     ts: number;
-    tempC?: number | undefined;
+    temp?: number | undefined;
     hum?: number | undefined;
     gas?: number | undefined;
     dust?: number | undefined;
@@ -67,14 +67,14 @@ export function scoreGasPpm(gas: number): number {
 export class TelemetryProcessor {
     ingest(t: Telemetry): Derived {
         const scores: number[] = [
-            scoreTempC(t.tempC ?? 24),
+            scoreTempC(t.temp ?? 24),
             scoreHumidityPct(t.hum ?? 50),
             scoreDustMgM3(t.dust ?? 0),
             scoreGasPpm(t.gas ?? 0)
         ]; let IAQ = Math.min(...scores);
 
         const level: Derived["level"] =
-            IAQ >= 85 ? "SAFE" : IAQ >= 65 ? "WARN" : "DANGER";
+            IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
 
         const out: Derived = {
             deviceId: t.deviceId,

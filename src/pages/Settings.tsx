@@ -106,7 +106,7 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <div className="text-xs font-semibold text-slate-600">Dust warn (µg/m³)</div>
+                  <div className="text-xs font-semibold text-slate-600">Dust warn (mg/m³)</div>
                   <input
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                     value={model.dust_warn}
@@ -114,7 +114,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-slate-600">Dust danger (µg/m³)</div>
+                  <div className="text-xs font-semibold text-slate-600">Dust danger (mg/m³)</div>
                   <input
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                     value={model.dust_danger}

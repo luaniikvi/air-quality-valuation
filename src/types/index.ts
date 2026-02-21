@@ -14,9 +14,12 @@ export interface Reading {
   temp?: number;
   hum?: number;
   gas?: number;
+  /** Dust concentration (mg/m³). */
   dust?: number;
-  aqi?: number;
-  level?: 'OK' | 'WARN' | 'DANGER';
+  /** IAQ index 0..100 (100 is best). Backend sends this. */
+  iaq?: number;
+  /** Level derived in backend: SAFE | WARN | DANGER */
+  level?: 'SAFE' | 'WARN' | 'DANGER';
   rssi?: number;
 }
 
@@ -24,7 +27,7 @@ export interface AlertItem {
   id: string;
   device_id: string;
   ts: string;
-  type: 'temp' | 'hum' | 'gas' | 'dust' | 'aqi' | 'system';
+  type: 'temp' | 'hum' | 'gas' | 'dust' | 'iaq' | 'system';
   value?: number;
   level: 'INFO' | 'WARN' | 'DANGER';
   message: string;

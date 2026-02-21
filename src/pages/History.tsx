@@ -16,7 +16,7 @@ const METRIC_COLORS: Record<string, string> = {
   hum: '#3b82f6', // blue
   gas: '#a855f7', // purple
   dust: '#eab308', // yellow
-  aqi: '#44ef58' // red
+  iaq: '#44ef58' // iaq
 };
 
 function PencilIcon({ className }: { className?: string }) {
@@ -47,8 +47,8 @@ const METRICS = [
   { key: 'temp', label: 'Temperature (Nhiệt độ)', unit: '°C' },
   { key: 'hum', label: 'Humidity (Độ ẩm)', unit: '%' },
   { key: 'gas', label: 'Gas (Khí)', unit: 'ppm' },
-  { key: 'dust', label: 'Dust (Bụi)', unit: 'µg/m³' },
-  { key: 'aqi', label: 'AQI', unit: '' }
+  { key: 'dust', label: 'Dust (Bụi)', unit: 'mg/m³' },
+  { key: 'iaq', label: 'IAQ', unit: '' }
 ] as const;
 
 type MetricKey = (typeof METRICS)[number]['key'];
@@ -90,7 +90,7 @@ export default function History() {
   const [from, setFrom] = useState(() => toLocalInputValue(isoMinusMs(6 * 60 * 60 * 1000)));
   const [to, setTo] = useState(() => toLocalInputValue(isoNow()));
   const [interval, setIntervalValue] = useState('1m');
-  const [metrics, setMetrics] = useState<MetricKey[]>(['aqi']);
+  const [metrics, setMetrics] = useState<MetricKey[]>(['iaq']);
   const [showRaw, setShowRaw] = useState(false);
 
   const [points, setPoints] = useState<Reading[]>([]);
@@ -258,7 +258,7 @@ export default function History() {
             <button
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
               onClick={() => {
-                const rows: string[][] = [['ts', 'temp', 'hum', 'gas', 'dust', 'aqi', 'level']];
+                const rows: string[][] = [['ts', 'temp', 'hum', 'gas', 'dust', 'iaq', 'level']];
                 for (const p of points) {
                   rows.push([
                     p.ts,
@@ -266,7 +266,7 @@ export default function History() {
                     String(p.hum ?? ''),
                     String(p.gas ?? ''),
                     String(p.dust ?? ''),
-                    String(p.aqi ?? ''),
+                    String((p as any).iaq ?? ''),
                     String(p.level ?? '')
                   ]);
                 }
@@ -295,7 +295,7 @@ export default function History() {
                         { header: 'Hum', cell: (r) => (r.hum ?? ''), className: 'whitespace-nowrap' },
                         { header: 'Gas', cell: (r) => (r.gas ?? ''), className: 'whitespace-nowrap' },
                         { header: 'Dust', cell: (r) => (r.dust ?? ''), className: 'whitespace-nowrap' },
-                        { header: 'AQI', cell: (r) => (r.aqi ?? ''), className: 'whitespace-nowrap' },
+                        { header: 'IAQ', cell: (r) => ((r as any).iaq ?? ''), className: 'whitespace-nowrap' },
                         { header: 'Level', cell: (r) => (r.level ?? ''), className: 'whitespace-nowrap' }
                       ]}
                     />
