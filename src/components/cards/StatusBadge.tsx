@@ -1,6 +1,6 @@
-export default function StatusBadge({ level }: { level: 'SAFE' | 'WARN' | 'DANGER' }) {
+export default function StatusBadge({ level }: { level: 'SAFE' | 'WARN' | 'DANGER' | '...' }) {
   const cls =
-    level === 'SAFE'
+    level === 'SAFE' || '...'
       ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
       : level === 'WARN'
         ? 'bg-amber-100 text-amber-900 border-amber-200'

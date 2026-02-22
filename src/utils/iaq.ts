@@ -7,7 +7,13 @@ export function iaqCardColors(iaq: number) {
   };
 }
 
-export function bannerCopy(level: 'SAFE' | 'WARN' | 'DANGER') {
+export function bannerCopy(level: 'SAFE' | 'WARN' | 'DANGER' | '...') {
+  if (level === '...')
+    return {
+      cls: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+      title: 'Trạng thái: ...',
+      desc: 'Loading...'
+    };
   if (level === 'SAFE') {
     return {
       cls: 'border-emerald-200 bg-emerald-50 text-emerald-900',

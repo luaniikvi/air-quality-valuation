@@ -5,7 +5,7 @@
 
 import mqtt from 'mqtt';
 import { WebSocketServer, WebSocket } from 'ws';
-import type { Telemetry, Derived } from "../../src/types/index.js";
+import type { Telemetry, Processed } from "../../src/types/index.js";
 import { processor } from './telemetryProcessor.js';
 
 
@@ -52,17 +52,15 @@ mqttClient.on('connect', () => {
 mqttClient.on('message', (_topic, payload) => {
   const text = payload.toString('utf8');
   try {
-    const t = JSON.parse(text) as Telemetry;
-    if (!t?.deviceId || typeof t.ts !== 'number') return;
+    const telemetry = JSON.parse(text) as Telemetry;
+    if (!telemetry?.deviceId || typeof telemetry.ts !== 'number') return;
 
-    const data: Derived = processor.ingest(t);
-    const stringData: string = JSON.stringify(data)
+    const stringData: string = JSON.stringify(processor.ingest(telemetry))
     wss.clients.forEach((client: WSClient) => {
       if (client.readyState !== WebSocket.OPEN) return;
-      if (client.deviceId !== t.deviceId) return;
+      if (client.deviceId !== telemetry.deviceId) return;
       client.send(stringData);
     });
-    console.log(data);
   } catch { }
 });
 

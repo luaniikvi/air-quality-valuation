@@ -5,30 +5,8 @@ export interface Device {
   name?: string;
   location?: string;
   status?: DeviceStatus;
-  last_seen?: string; // ISO
+  last_seen?: number; // ts
 }
-
-export interface Reading {
-  device_id: string;
-  ts: string; // ISO
-  temp?: number;
-  hum?: number;
-  gas?: number;
-  dust?: number;
-  iaq?: number;
-  level?: 'SAFE' | 'WARN' | 'DANGER';
-  rssi?: number;
-}
-export interface Derived {
-  deviceId: string;
-  ts: number;
-  temp?: number | undefined;
-  hum?: number | undefined;
-  gas?: number | undefined;
-  dust?: number | undefined;
-  IAQ: number;
-  level: "SAFE" | "WARN" | "DANGER";
-};
 
 export interface Telemetry {
   deviceId: string;
@@ -39,10 +17,23 @@ export interface Telemetry {
   dust?: number | undefined;
 };
 
+export interface Processed {
+  deviceId: string;
+  ts: number;
+  temp?: number | undefined;
+  hum?: number | undefined;
+  gas?: number | undefined;
+  dust?: number | undefined;
+  IAQ: number | undefined;
+  level: 'SAFE' | 'WARN' | 'DANGER' | '...';
+};
+
+
+
 export interface AlertItem {
   id: string;
   device_id: string;
-  ts: string;
+  ts: number;
   type: 'temp' | 'hum' | 'gas' | 'dust' | 'iaq' | 'system';
   value?: number;
   level: 'INFO' | 'WARN' | 'DANGER';
@@ -65,9 +56,9 @@ export interface HistoryQuery {
   device_id: string;
   from: string; // ISO
   to: string;   // ISO
-  interval?: string; // e.g. '10s' | '1m' | '5m'
+  interval: string; // e.g. '10s' | '1m' | '5m'
 }
 
 export interface HistoryResponse {
-  points: Reading[];
+  points: Processed[];
 }

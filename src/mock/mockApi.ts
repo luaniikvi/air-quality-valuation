@@ -1,11 +1,10 @@
 import type { AlertItem, Device, HistoryQuery, HistoryResponse, ThresholdSettings } from '../types';
-import { isoNow } from '../utils/format';
-import { processor, iaqCalculate } from '../../backend/src/telemetryProcessor';
-import type { Derived, Reading, Telemetry } from '../types';
+import { iaqCalculate, iaqToLevel } from '../../backend/src/telemetryProcessor';
+import type { Processed } from '../types';
 
 const devices: Device[] = [
-  { device_id: 'esp32-001', name: 'ESP32 Phòng khách', location: 'Livingroom', status: 'online', last_seen: isoNow() },
-  { device_id: 'esp32-002', name: 'ESP32 Phòng ngủ', location: 'Bedroom', status: 'online', last_seen: isoNow() }
+  { device_id: 'esp32-001', name: 'ESP32 Phòng khách', location: 'Livingroom', status: 'online', last_seen: Date.now() },
+  { device_id: 'esp32-002', name: 'ESP32 Phòng ngủ', location: 'Bedroom', status: 'online', last_seen: Date.now() }
 ];
 
 const settingsMap: Record<string, ThresholdSettings> = {
@@ -33,7 +32,7 @@ const settingsMap: Record<string, ThresholdSettings> = {
   }
 };
 
-const lastByDevice: Record<string, Reading> = {};
+const lastByDevice: Record<string, Processed> = {};
 
 function rand(n: number) {
   return Math.random() * n;
@@ -56,17 +55,25 @@ function parseIntervalToMs(interval?: string): number {
   return value * 3_600_000;
 }
 
-function makeReading(device_id: string, ts = isoNow()): Reading {
+function makeReading(device_id: string, ts = Date.now()): Processed {
   const prev = lastByDevice[device_id];
-  const base: Reading = prev
+  const randomData: number[] = [
+    25 + rand(3),
+    55 + rand(10),
+    500 + rand(300),
+    0.03 + rand(0.03),
+  ];
+  const base: Processed = prev
     ? { ...prev, ts }
     : {
-      device_id,
-      ts,
-      temp: 25 + rand(3),
-      hum: 55 + rand(10),
-      gas: 500 + rand(300),
-      dust: 0.03 + rand(0.03)
+      deviceId: device_id,
+      ts: Math.floor(ts / 1000),
+      temp: randomData[0],
+      hum: randomData[1],
+      gas: randomData[2],
+      dust: randomData[3],
+      IAQ: iaqCalculate(...randomData),
+      level: iaqToLevel(iaqCalculate(...randomData))
     };
 
   const temp = step(base.temp ?? 25, 0.2, 10, 45);
@@ -75,13 +82,15 @@ function makeReading(device_id: string, ts = isoNow()): Reading {
   const dust = step(base.dust ?? 0.04, 0.002, 0, 0.3);
 
 
-  const reading: Reading = {
-    device_id,
-    ts,
+  const reading: Processed = {
+    deviceId: device_id,
+    ts: ts,
     temp: Math.round(temp * 10) / 10,
     hum: Math.round(hum * 10) / 10,
     gas: Math.round(gas),
-    dust: Math.round(dust * 1000) / 1000
+    dust: Math.round(dust * 1000) / 1000,
+    IAQ: iaqCalculate(temp, hum, gas, dust),
+    level: iaqToLevel(iaqCalculate(temp, hum, gas, dust))
   };
   const telList: number[] = [
     Math.round(temp * 10) / 10,
@@ -90,15 +99,15 @@ function makeReading(device_id: string, ts = isoNow()): Reading {
     Math.round(dust * 1000) / 1000
   ];
   const iaq = iaqCalculate(...telList);
-  reading.iaq = iaq;
-  reading.level = iaq >= 80 ? "SAFE" : iaq >= 60 ? "WARN" : "DANGER";
+  reading.IAQ = iaq;
+  reading.level = iaqToLevel(reading.IAQ);
 
   lastByDevice[device_id] = reading;
   return reading;
 }
 
 export async function getDevices(): Promise<Device[]> {
-  return devices.map((d) => ({ ...d, last_seen: isoNow() }));
+  return devices.map((d) => ({ ...d, last_seen: Date.now() }));
 }
 
 export async function addDevice(payload: Device): Promise<Device> {
@@ -113,7 +122,7 @@ export async function addDevice(payload: Device): Promise<Device> {
     name: (payload.name || '').trim() || id,
     location: (payload.location || '').trim() || undefined,
     status: 'online',
-    last_seen: isoNow()
+    last_seen: Date.now()
   };
 
   devices.unshift(dev);
@@ -151,12 +160,12 @@ export async function updateDevice(device_id: string, patch: Partial<Device>): P
   if (patch.name !== undefined) dev.name = name || undefined;
   if (patch.location !== undefined) dev.location = location || undefined;
 
-  dev.last_seen = isoNow();
+  dev.last_seen = Date.now();
   return { ...dev };
 }
 
-export async function getLatest(device_id: string): Promise<Reading> {
-  return makeReading(device_id, isoNow());
+export async function getLatest(device_id: string): Promise<Processed> {
+  return makeReading(device_id);
 }
 
 export async function getHistory(q: HistoryQuery): Promise<HistoryResponse> {
@@ -169,9 +178,9 @@ export async function getHistory(q: HistoryQuery): Promise<HistoryResponse> {
   const approxPoints = Math.max(1, Math.floor(range / stepMs));
   if (approxPoints > 600) stepMs = Math.ceil(range / 600);
 
-  const points: Reading[] = [];
+  const points: Processed[] = [];
   for (let t = fromMs; t <= toMs; t += stepMs) {
-    const ts = new Date(t).toISOString();
+    const ts = t;
     points.push(makeReading(q.device_id, ts));
   }
 
@@ -186,17 +195,16 @@ export async function getAlerts(device_id: string, from: string, to: string): Pr
 
   for (let i = 0; i < count; i++) {
     const t = fromMs + Math.random() * (toMs - fromMs);
-    const ts = new Date(t).toISOString();
-    const r = makeReading(device_id, ts);
+    const r = makeReading(device_id);
     const level = r.level === 'DANGER' ? 'DANGER' : r.level === 'WARN' ? 'WARN' : 'INFO';
     items.push({
       id: `${device_id}-${t}-${i}`,
       device_id,
-      ts,
+      ts: Date.now(),
       type: r.level === 'SAFE' ? 'system' : 'iaq',
-      value: r.iaq,
+      value: r.IAQ,
       level,
-      message: r.level === 'SAFE' ? 'Heartbeat ok' : `iaq ${r.iaq} (${r.level})`
+      message: r.level === 'SAFE' ? 'Heartbeat ok' : `iaq ${r.IAQ} (${r.level})`
     });
   }
 

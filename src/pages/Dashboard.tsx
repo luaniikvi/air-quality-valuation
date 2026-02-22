@@ -6,14 +6,14 @@ import Loading from '../components/common/Loading';
 import NoDeviceState from '../components/common/NoDeviceState';
 import { hasDeviceId } from '../utils/deviceGuard';
 import { useDeviceContext } from '../components/layout/DeviceProvider';
-import type { /*Reading,*/ Derived } from '../types';
+import type { /*Reading,*/ Processed } from '../types';
 import { bannerCopy, iaqCardColors } from '../utils/iaq';
 
 export default function Dashboard() {
   const { deviceId } = useDeviceContext();
   const noDevice = !hasDeviceId(deviceId);
 
-  const [latest, setLatest] = useState<Derived | null>(null);
+  const [latest, setLatest] = useState<Processed | null>(null);
   const [wsState, setWsState] = useState<'off' | 'connecting' | 'connected' | 'error' | 'closed'>('off');
 
   // Dashboard chỉ hiển thị dữ liệu realtime từ WS (backend đã tính IAQ).
@@ -40,11 +40,12 @@ export default function Dashboard() {
 
       ws.onmessage = (ev) => {
         try {
-          const msg = JSON.parse(ev.data) as Partial<Derived>;
-          if (msg.deviceId === deviceId && typeof msg.ts === 'number') {
+          const msg = JSON.parse(ev.data) as Partial<Processed>;
+          if (typeof msg.ts === 'undefined') return;
+          if (msg.deviceId === deviceId) {
             setLatest((prev) => {
               if (!prev || msg.ts! > prev.ts) {
-                return msg as Derived;
+                return msg as Processed;
               }
               return prev;
             });
@@ -65,11 +66,7 @@ export default function Dashboard() {
 
     return () => {
       cancelled = true;
-      try {
-        ws?.close();
-      } catch {
-        // ignore
-      }
+      try { ws?.close(); } catch { }
     };
   }, [deviceId]);
 
@@ -79,7 +76,7 @@ export default function Dashboard() {
   }, [latest]);
 
   const rawLevel = latest?.level;
-  const level: 'SAFE' | 'WARN' | 'DANGER' = rawLevel === undefined ? 'SAFE' : rawLevel;
+  const level: 'SAFE' | 'WARN' | 'DANGER' | '...' = !rawLevel ? '...' : rawLevel;
 
   const iaqColors = useMemo(() => (iaq == null ? null : iaqCardColors(iaq)), [iaq]);
   const iaqTitle = iaq != null ? `IAQ • ${latest?.level}` : 'IAQ';

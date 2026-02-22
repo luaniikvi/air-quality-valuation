@@ -1,5 +1,5 @@
 // backend/src/processing/telemetryProcessor.ts
-import type { Telemetry, Derived } from "../../src/types/index.js";
+import type { Telemetry, Processed } from "../../src/types/index.js";
 
 function clamp100(x: number): number {
     if (x < 0) return 0;
@@ -49,30 +49,37 @@ export function scoreDustMgM3(dust: number): number {
 export function scoreGasPpm(gas: number): number {
     return scoreDecreasing1Sided(gas, 200, 1000);
 }
-export function iaqCalculate(...telList: number[]): number {
-    return Math.min(...telList);
+export function iaqCalculate(temp?: number, hum?: number, dust?: number, gas?: number): number | undefined {
+    if (!temp || !hum || !dust || !gas) return undefined;
+
+    const scores: number[] = [
+        scoreTempC(temp ?? 24),
+        scoreHumidityPct(hum ?? 50),
+        scoreDustMgM3(dust ?? 0),
+        scoreGasPpm(gas ?? 0)
+    ];
+    return Math.min(...scores);
+}
+export function iaqToLevel(IAQ?: number) {
+    if (typeof IAQ === 'undefined') return '...';
+    return IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
 }
 
 export class TelemetryProcessor {
-    ingest(t: Telemetry): Derived {
-        const scores: number[] = [
-            scoreTempC(t.temp ?? 24),
-            scoreHumidityPct(t.hum ?? 50),
-            scoreDustMgM3(t.dust ?? 0),
-            scoreGasPpm(t.gas ?? 0)
-        ]; let IAQ = iaqCalculate(...scores);
+    ingest(t: Telemetry): Processed {
+        let IAQ = iaqCalculate(t.temp, t.hum, t.dust, t.gas);
 
-        const level: Derived["level"] =
-            IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
+        const level: Processed["level"] =
+            !IAQ ? '...' : IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
 
-        const out: Derived = {
+        const out: Processed = {
             deviceId: t.deviceId,
             ts: t.ts,
             temp: t.temp,
             hum: t.hum,
             gas: t.gas,
             dust: t.dust,
-            IAQ: Math.ceil(IAQ),
+            IAQ: !IAQ ? IAQ : Math.floor(IAQ),
             level: level
         };
         return out;
