@@ -14,14 +14,30 @@ export interface Reading {
   temp?: number;
   hum?: number;
   gas?: number;
-  /** Dust concentration (mg/m³). */
   dust?: number;
-  /** IAQ index 0..100 (100 is best). Backend sends this. */
   iaq?: number;
-  /** Level derived in backend: SAFE | WARN | DANGER */
   level?: 'SAFE' | 'WARN' | 'DANGER';
   rssi?: number;
 }
+export interface Derived {
+  deviceId: string;
+  ts: number;
+  temp?: number | undefined;
+  hum?: number | undefined;
+  gas?: number | undefined;
+  dust?: number | undefined;
+  IAQ: number;
+  level: "SAFE" | "WARN" | "DANGER";
+};
+
+export interface Telemetry {
+  deviceId: string;
+  ts: number;
+  temp?: number | undefined;
+  hum?: number | undefined;
+  gas?: number | undefined;
+  dust?: number | undefined;
+};
 
 export interface AlertItem {
   id: string;

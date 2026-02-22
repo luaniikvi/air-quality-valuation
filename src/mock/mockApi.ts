@@ -1,6 +1,7 @@
-import type { AlertItem, Device, HistoryQuery, HistoryResponse, Reading, ThresholdSettings } from '../types';
+import type { AlertItem, Device, HistoryQuery, HistoryResponse, ThresholdSettings } from '../types';
 import { isoNow } from '../utils/format';
-import { computeIaqIndex, iaqLevelFromIndex } from '../utils/iaq';
+import { processor, iaqCalculate } from '../../backend/src/telemetryProcessor';
+import type { Derived, Reading, Telemetry } from '../types';
 
 const devices: Device[] = [
   { device_id: 'esp32-001', name: 'ESP32 Phòng khách', location: 'Livingroom', status: 'online', last_seen: isoNow() },
@@ -73,18 +74,24 @@ function makeReading(device_id: string, ts = isoNow()): Reading {
   const gas = step(base.gas ?? 600, 15, 200, 2000);
   const dust = step(base.dust ?? 0.04, 0.002, 0, 0.3);
 
+
   const reading: Reading = {
     device_id,
     ts,
     temp: Math.round(temp * 10) / 10,
     hum: Math.round(hum * 10) / 10,
     gas: Math.round(gas),
-    dust: Math.round(dust * 1000) / 1000,
-    rssi: -45 - Math.round(rand(20))
+    dust: Math.round(dust * 1000) / 1000
   };
-  const iaq = computeIaqIndex(reading);
+  const telList: number[] = [
+    Math.round(temp * 10) / 10,
+    Math.round(hum * 10) / 10,
+    Math.round(gas),
+    Math.round(dust * 1000) / 1000
+  ];
+  const iaq = iaqCalculate(...telList);
   reading.iaq = iaq;
-  reading.level = iaqLevelFromIndex(iaq);
+  reading.level = iaq >= 80 ? "SAFE" : iaq >= 60 ? "WARN" : "DANGER";
 
   lastByDevice[device_id] = reading;
   return reading;

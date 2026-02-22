@@ -1,67 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import MetricCard from '../components/cards/MetricCard';
 import StatusBadge from '../components/cards/StatusBadge';
 import Loading from '../components/common/Loading';
-import ErrorState from '../components/common/ErrorState';
 import NoDeviceState from '../components/common/NoDeviceState';
 import { hasDeviceId } from '../utils/deviceGuard';
 import { useDeviceContext } from '../components/layout/DeviceProvider';
-import { getLatest } from '../api/sensorApi';
-import type { Reading } from '../types';
-// import { computeIaqIndex, iaqLabel, iaqLevelFromIndex, iaqToCardColors } from '../utils/iaq';
-import { usePolling } from '../hooks/usePolling';
-
-function bannerCopy(level: 'SAFE' | 'WARN' | 'DANGER') {
-  if (level === 'SAFE') {
-    return {
-      cls: 'border-emerald-200 bg-emerald-50 text-emerald-900',
-      title: 'Trạng thái: Tốt',
-      desc: 'Các chỉ số đang trong ngưỡng an toàn.'
-    };
-  }
-  if (level === 'WARN') {
-    return {
-      cls: 'border-amber-200 bg-amber-50 text-amber-950',
-      title: 'CẢNH BÁO',
-      desc: 'Chỉ số đang vượt ngưỡng cảnh báo. Nên mở cửa sổ/quạt thông gió hoặc giảm nguồn gây ô nhiễm.'
-    };
-  }
-  return {
-    cls: 'border-rose-200 bg-rose-50 text-rose-950 animate-pulse',
-    title: 'NGUY HIỂM',
-    desc: 'Chất lượng không khí đang rất xấu. Hãy thông gió ngay và tránh ở lâu trong khu vực này.'
-  };
-}
-
-function isNewer(a?: string, b?: string) {
-  // returns true if a > b
-  if (!a) return false;
-  if (!b) return true;
-  return new Date(a).getTime() > new Date(b).getTime();
-}
+import type { /*Reading,*/ Derived } from '../types';
+import { bannerCopy, iaqCardColors } from '../utils/iaq';
 
 export default function Dashboard() {
   const { deviceId } = useDeviceContext();
   const noDevice = !hasDeviceId(deviceId);
 
-  const [latest, setLatest] = useState<Reading | null>(null);
+  const [latest, setLatest] = useState<Derived | null>(null);
   const [wsState, setWsState] = useState<'off' | 'connecting' | 'connected' | 'error' | 'closed'>('off');
 
-  const fetcher = useCallback(async () => {
-    if (!hasDeviceId(deviceId)) throw new Error('No device selected');
-    return await getLatest(deviceId);
-  }, [deviceId]);
-
-  const { data: polled, error: pollError, loading: pollLoading } = usePolling(fetcher, 2000, !noDevice);
-
-  // Apply polling updates (but don’t overwrite newer WS data)
-  useEffect(() => {
-    if (!polled) return;
-    setLatest((prev) => (isNewer(polled.ts, prev?.ts) ? polled : prev));
-  }, [polled]);
-
-  // WS subscription (optional). If it fails, polling still works.
+  // Dashboard chỉ hiển thị dữ liệu realtime từ WS (backend đã tính IAQ).
   useEffect(() => {
     if (!hasDeviceId(deviceId)) {
       setLatest(null);
@@ -85,14 +40,16 @@ export default function Dashboard() {
 
       ws.onmessage = (ev) => {
         try {
-          const msg = JSON.parse(ev.data);
-          if (msg?.type === 'latest' && msg.deviceId === deviceId && msg.reading) {
-            const r = msg.reading as Reading;
-            setLatest((prev) => (isNewer(r.ts, prev?.ts) ? r : prev));
+          const msg = JSON.parse(ev.data) as Partial<Derived>;
+          if (msg.deviceId === deviceId && typeof msg.ts === 'number') {
+            setLatest((prev) => {
+              if (!prev || msg.ts! > prev.ts) {
+                return msg as Derived;
+              }
+              return prev;
+            });
           }
-        } catch {
-          // ignore
-        }
+        } catch (err) { console.error("WS Message Error:", err); }
       };
 
       ws.onerror = () => {
@@ -117,58 +74,31 @@ export default function Dashboard() {
   }, [deviceId]);
 
   const iaq = useMemo(() => {
-    if (typeof latest?.iaq === 'number') return latest.iaq;
+    if (typeof latest?.IAQ === 'number') return latest.IAQ;
     if (!latest) return null;
   }, [latest]);
 
   const rawLevel = latest?.level;
   const level: 'SAFE' | 'WARN' | 'DANGER' = rawLevel === undefined ? 'SAFE' : rawLevel;
 
-  const iaqColors = useMemo(() => {
-    if (iaq == null) return null;
-    const lv: 'SAFE' | 'WARN' | 'DANGER' = level;
-
-    if (lv === 'SAFE') {
-      return {
-        bg: '#ECFDF5',      // emerald-50
-        border: '#A7F3D0',  // emerald-200
-        accent: 'emerald' as const
-      };
-    }
-    if (lv === 'WARN') {
-      return {
-        bg: '#FFFBEB',      // amber-50
-        border: '#FDE68A',  // amber-200
-        accent: 'amber' as const
-      };
-    }
-    return {
-      bg: '#FFF1F2',      // rose-50
-      border: '#FECDD3',  // rose-200
-      accent: 'rose' as const
-    };
-  }, [iaq, level]);
+  const iaqColors = useMemo(() => (iaq == null ? null : iaqCardColors(iaq)), [iaq]);
   const iaqTitle = iaq != null ? `IAQ • ${latest?.level}` : 'IAQ';
   const banner = bannerCopy(level);
 
-  const showError = !noDevice && !latest && !!pollError;
-
   return (
     <PageContainer title="Dashboard (Tổng quan)">
-      {showError ? <ErrorState message={pollError || 'Network error'} /> : null}
-
       {noDevice ? (
         <NoDeviceState />
       ) : (
         <>
           <div className="mt-4 flex items-center justify-between gap-3">
             <div className="text-sm text-slate-600">
-              {wsState === 'connected' ? 'Realtime: WebSocket + polling' : 'Realtime: polling (WS không sẵn sàng)'}
+              Realtime: WebSocket ({wsState})
             </div>
             <StatusBadge level={level} />
           </div>
 
-          {pollLoading && !latest ? (
+          {!latest ? (
             <div className="mt-6">
               <Loading />
             </div>

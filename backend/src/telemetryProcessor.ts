@@ -1,19 +1,5 @@
 // backend/src/processing/telemetryProcessor.ts
-export type Telemetry = {
-    deviceId: string;
-    ts: number;
-    temp?: number | undefined;
-    hum?: number | undefined;
-    gas?: number | undefined;
-    dust?: number | undefined;
-};
-
-export type Derived = {
-    deviceId: string;
-    ts: number;
-    IAQ: number;
-    level: "SAFE" | "WARN" | "DANGER";
-};
+import type { Telemetry, Derived } from "../../src/types/index.js";
 
 function clamp100(x: number): number {
     if (x < 0) return 0;
@@ -63,6 +49,9 @@ export function scoreDustMgM3(dust: number): number {
 export function scoreGasPpm(gas: number): number {
     return scoreDecreasing1Sided(gas, 200, 1000);
 }
+export function iaqCalculate(...telList: number[]): number {
+    return Math.min(...telList);
+}
 
 export class TelemetryProcessor {
     ingest(t: Telemetry): Derived {
@@ -71,7 +60,7 @@ export class TelemetryProcessor {
             scoreHumidityPct(t.hum ?? 50),
             scoreDustMgM3(t.dust ?? 0),
             scoreGasPpm(t.gas ?? 0)
-        ]; let IAQ = Math.min(...scores);
+        ]; let IAQ = iaqCalculate(...scores);
 
         const level: Derived["level"] =
             IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
@@ -79,6 +68,10 @@ export class TelemetryProcessor {
         const out: Derived = {
             deviceId: t.deviceId,
             ts: t.ts,
+            temp: t.temp,
+            hum: t.hum,
+            gas: t.gas,
+            dust: t.dust,
             IAQ: Math.ceil(IAQ),
             level: level
         };
