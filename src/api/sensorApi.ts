@@ -1,4 +1,4 @@
-import type { AlertItem, Device, HistoryQuery, HistoryResponse, Reading, ThresholdSettings } from '../types';
+import type { AlertItem, Device, HistoryQuery, HistoryResponse, Processed, ThresholdSettings } from '../types';
 import { http, isMockEnabled } from './http';
 import * as mock from '../mock/mockApi';
 
@@ -32,9 +32,9 @@ export async function updateDevice(device_id: string, patch: Partial<Device>): P
   return res.data;
 }
 
-export async function getLatest(device_id: string): Promise<Reading> {
+export async function getLatest(device_id: string): Promise<Processed> {
   if (isMockEnabled()) return mock.getLatest(device_id);
-  const res = await http.get<Reading>('/latest', { params: { device_id } });
+  const res = await http.get<Processed>('/latest', { params: { device_id } });
   return res.data;
 }
 

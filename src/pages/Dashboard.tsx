@@ -71,11 +71,11 @@ export default function Dashboard() {
 
   const iaq = useMemo(() => {
     if (typeof latest?.IAQ === 'number') return latest.IAQ;
-    if (!latest) return null;
+    if (!latest) return undefined;
   }, [latest]);
 
-  const rawLevel = latest?.level;
-  const level: 'SAFE' | 'WARN' | 'DANGER' | '...' = !rawLevel ? '...' : rawLevel;
+  const level: 'SAFE' | 'WARN' | 'DANGER' | '...' = latest?.level ?? "...";
+
 
   const iaqColors = useMemo(() => (iaq == null ? null : iaqCardColors(iaq)), [iaq]);
   const iaqTitle = iaq != null ? `IAQ • ${latest?.level}` : 'IAQ';
@@ -84,9 +84,7 @@ export default function Dashboard() {
   return (
     <PageContainer title="Dashboard (Tổng quan)">
       {noDevice ? (
-        <div className="text-sm font-semibold text-slate-900">
-          'Chưa có thiết bị'
-        </div>
+        NoDeviceState()
       ) : (
         <>
           <div className="mt-4 flex items-center justify-between gap-3">
@@ -116,7 +114,7 @@ export default function Dashboard() {
 
           <MetricCard
             title={iaqTitle}
-            value={iaq ?? '...'}
+            value={typeof iaq === "number" ? iaq : '...'}
             className="mt-6 p-6"
             valueClassName="text-6xl"
             accentColor={iaqColors?.accent}

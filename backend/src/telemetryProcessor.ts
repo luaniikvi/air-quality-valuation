@@ -50,7 +50,13 @@ export function scoreGasPpm(gas: number): number {
     return scoreDecreasing1Sided(gas, 200, 1000);
 }
 export function iaqCalculate(temp?: number, hum?: number, dust?: number, gas?: number): number | undefined {
-    if (!temp || !hum || !dust || !gas) return undefined;
+    if (
+        typeof temp === 'undefined' ||
+        typeof hum === 'undefined' ||
+        typeof dust === 'undefined' ||
+        typeof gas === 'undefined')
+        return undefined;
+
 
     const scores: number[] = [
         scoreTempC(temp ?? 24),
@@ -61,16 +67,14 @@ export function iaqCalculate(temp?: number, hum?: number, dust?: number, gas?: n
     return Math.min(...scores);
 }
 export function iaqToLevel(IAQ?: number) {
-    if (typeof IAQ === 'undefined') return '...';
-    return IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
+    return IAQ == null ? '...' : IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
 }
 
 export class TelemetryProcessor {
     ingest(t: Telemetry): Processed {
         let IAQ = iaqCalculate(t.temp, t.hum, t.dust, t.gas);
 
-        const level: Processed["level"] =
-            !IAQ ? '...' : IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
+        const level: Processed["level"] = iaqToLevel(IAQ);
 
         const out: Processed = {
             deviceId: t.deviceId,

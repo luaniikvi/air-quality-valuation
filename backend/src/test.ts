@@ -8,4 +8,4 @@ console.log(processor.ingest({
     hum: 41.5,
     dust: 0,
     gas: 401
-}))
+})) // 100-SAFE
