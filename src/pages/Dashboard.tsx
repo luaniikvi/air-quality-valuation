@@ -6,17 +6,16 @@ import Loading from '../components/common/Loading';
 import NoDeviceState from '../components/common/NoDeviceState';
 import { hasDeviceId } from '../utils/deviceGuard';
 import { useDeviceContext } from '../components/layout/DeviceProvider';
-import type { /*Reading,*/ Processed } from '../types';
+import type { Processed } from '../types';
 import { bannerCopy, iaqCardColors } from '../utils/iaq';
 
 export default function Dashboard() {
-  const { deviceId } = useDeviceContext();
-  const noDevice = !hasDeviceId(deviceId);
+  const { deviceId, devices } = useDeviceContext();
+  const noDevice = !hasDeviceId(deviceId) || devices.length === 0;
 
   const [latest, setLatest] = useState<Processed | null>(null);
   const [wsState, setWsState] = useState<'off' | 'connecting' | 'connected' | 'error' | 'closed'>('off');
 
-  // Dashboard chỉ hiển thị dữ liệu realtime từ WS (backend đã tính IAQ).
   useEffect(() => {
     if (!hasDeviceId(deviceId)) {
       setLatest(null);
@@ -85,7 +84,9 @@ export default function Dashboard() {
   return (
     <PageContainer title="Dashboard (Tổng quan)">
       {noDevice ? (
-        <NoDeviceState />
+        <div className="text-sm font-semibold text-slate-900">
+          'Chưa có thiết bị'
+        </div>
       ) : (
         <>
           <div className="mt-4 flex items-center justify-between gap-3">
