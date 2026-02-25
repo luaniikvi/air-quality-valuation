@@ -15,7 +15,7 @@ function formatClock(d: Date) {
 
 export default function Topbar() {
   const { deviceId, setDeviceId, devices, loading, error, refresh } = useDeviceContext();
-  const current = devices.find((d) => d.device_id === deviceId);
+  const current = devices.find((d) => d.deviceId === deviceId);
   const noDevices = devices.length === 0;
 
   const [now, setNow] = useState(() => new Date());
@@ -41,11 +41,10 @@ export default function Topbar() {
 
           {!noDevices && current?.status ? (
             <span
-              className={`rounded-full border px-2 py-1 text-xs ${
-                current.status === 'online'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                  : 'border-slate-200 bg-slate-50 text-slate-700'
-              }`}
+              className={`rounded-full border px-2 py-1 text-xs ${current.status === 'online'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-slate-200 bg-slate-50 text-slate-700'
+                }`}
             >
               {current.status}
             </span>
@@ -79,8 +78,8 @@ export default function Topbar() {
           >
             {noDevices ? <option value="">— Chưa có —</option> : null}
             {devices.map((d) => (
-              <option key={d.device_id} value={d.device_id}>
-                {d.device_id}{d.location ? ` • ${d.location}` : ''}
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.deviceId}
               </option>
             ))}
           </select>

@@ -3,8 +3,8 @@ import { iaqCalculate, iaqToLevel } from '../../backend/src/telemetryProcessor';
 import type { Processed } from '../types';
 
 const devices: Device[] = [
-  { device_id: 'esp32-001', name: 'ESP32 Phòng khách', location: 'Livingroom', status: 'online', last_seen: Date.now() },
-  { device_id: 'esp32-002', name: 'ESP32 Phòng ngủ', location: 'Bedroom', status: 'online', last_seen: Date.now() }
+  { device_id: 'esp32-001', name: 'ESP32 Phòng khách', location: 'Livingroom', status: 'online', last_seen: Math.trunc(Date.now() / 1000) },
+  { device_id: 'esp32-002', name: 'ESP32 Phòng ngủ', location: 'Bedroom', status: 'online', last_seen: Math.trunc(Date.now() / 1000) }
 ];
 
 const settingsMap: Record<string, ThresholdSettings> = {
@@ -55,7 +55,7 @@ function parseIntervalToMs(interval?: string): number {
   return value * 3_600_000;
 }
 
-function makeReading(device_id: string, ts = Date.now()): Processed {
+function makeReading(device_id: string, ts = Math.trunc(Date.now() / 1000)): Processed {
   const prev = lastByDevice[device_id];
   const randomData: number[] = [
     25 + rand(3),
@@ -107,7 +107,7 @@ function makeReading(device_id: string, ts = Date.now()): Processed {
 }
 
 export async function getDevices(): Promise<Device[]> {
-  return devices.map((d) => ({ ...d, last_seen: Date.now() }));
+  return devices.map((d) => ({ ...d, last_seen: Math.trunc(Date.now() / 1000) }));
 }
 
 export async function addDevice(payload: Device): Promise<Device> {
@@ -122,7 +122,7 @@ export async function addDevice(payload: Device): Promise<Device> {
     name: (payload.name || '').trim() || id,
     location: (payload.location || '').trim() || undefined,
     status: 'online',
-    last_seen: Date.now()
+    last_seen: Math.trunc(Date.now() / 1000)
   };
 
   devices.unshift(dev);
@@ -160,7 +160,7 @@ export async function updateDevice(device_id: string, patch: Partial<Device>): P
   if (patch.name !== undefined) dev.name = name || undefined;
   if (patch.location !== undefined) dev.location = location || undefined;
 
-  dev.last_seen = Date.now();
+  dev.last_seen = Math.trunc(Date.now() / 1000);
   return { ...dev };
 }
 
@@ -200,7 +200,7 @@ export async function getAlerts(device_id: string, from: string, to: string): Pr
     items.push({
       id: `${device_id}-${t}-${i}`,
       device_id,
-      ts: Date.now(),
+      ts: Math.trunc(Date.now() / 1000),
       type: r.level === 'SAFE' ? 'system' : 'iaq',
       value: r.IAQ,
       level,

@@ -1,15 +1,3 @@
-// import axios from 'axios';
-
-// const baseURL = String(import.meta.env.VITE_API_BASE || '').trim() || 'http://localhost:3000/api';
-
-// export const http = axios.create({
-//     baseURL,
-//     timeout: 8000,
-// });
-
-// export function isMockEnabled(): boolean {
-//     return String(import.meta.env.VITE_USE_MOCK || '').trim().toLowerCase() === 'true';
-// }
 import axios from 'axios';
 
 const baseURL = String(import.meta.env.VITE_API_BASE || '').trim() || 'http://localhost:3000/api';
@@ -26,8 +14,8 @@ http.interceptors.response.use(
         if (axios.isAxiosError(err)) {
             // No response => DNS/connection/CORS/mixed-content/timeout...
             if (!err.response) {
-                const timedOut = err.code === 'ECONNABORTED';
-                const hint = timedOut
+                const timedOut: boolean = err.code === 'ECONNABORTED';
+                const hint: string = timedOut
                     ? 'Request bị timeout'
                     : 'Không kết nối được tới backend (backend chưa chạy / sai URL / bị CORS / mixed-content)';
                 return Promise.reject(new Error(`${hint}. API_BASE=${baseURL}`));

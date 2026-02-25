@@ -1,11 +1,10 @@
 export type DeviceStatus = 'online' | 'offline';
 
 export interface Device {
-  device_id: string;
-  name?: string;
-  location?: string;
+  deviceId: string;
+  name: string | undefined;
   status?: DeviceStatus;
-  last_seen?: number; // ts
+  last_seen?: number; // unix stamp
 }
 
 export interface Telemetry {
@@ -25,10 +24,8 @@ export interface Processed {
   gas?: number | undefined;
   dust?: number | undefined;
   IAQ: number | undefined;
-  level: 'SAFE' | 'WARN' | 'DANGER' | '...';
+  level: 'SAFE' | 'WARN' | 'DANGER' | undefined;
 };
-
-
 
 export interface AlertItem {
   id: string;
@@ -54,8 +51,8 @@ export interface ThresholdSettings {
 
 export interface HistoryQuery {
   device_id: string;
-  from: string; // ISO
-  to: string;   // ISO
+  from: string;
+  to: string;
   interval: string; // e.g. '10s' | '1m' | '5m'
 }
 

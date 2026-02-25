@@ -54,9 +54,8 @@ export function iaqCalculate(temp?: number, hum?: number, dust?: number, gas?: n
         typeof temp === 'undefined' ||
         typeof hum === 'undefined' ||
         typeof dust === 'undefined' ||
-        typeof gas === 'undefined')
-        return undefined;
-
+        typeof gas === 'undefined'
+    ) return undefined;
 
     const scores: number[] = [
         scoreTempC(temp ?? 24),
@@ -64,29 +63,24 @@ export function iaqCalculate(temp?: number, hum?: number, dust?: number, gas?: n
         scoreDustMgM3(dust ?? 0),
         scoreGasPpm(gas ?? 0)
     ];
-    return Math.min(...scores);
+    return Math.trunc(Math.min(...scores));
 }
-export function iaqToLevel(IAQ?: number) {
-    return IAQ == null ? '...' : IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
+export function iaqToLevel(IAQ?: number): Processed["level"] {
+    if (IAQ === undefined || IAQ == null) undefined;
+    return IAQ! >= 80 ? "SAFE" : IAQ! >= 60 ? "WARN" : "DANGER";
 }
 
 export class TelemetryProcessor {
     ingest(t: Telemetry): Processed {
-        let IAQ = iaqCalculate(t.temp, t.hum, t.dust, t.gas);
-
+        const IAQ = iaqCalculate(t.temp, t.hum, t.dust, t.gas);
         const level: Processed["level"] = iaqToLevel(IAQ);
 
-        const out: Processed = {
-            deviceId: t.deviceId,
-            ts: t.ts,
-            temp: t.temp,
-            hum: t.hum,
-            gas: t.gas,
-            dust: t.dust,
-            IAQ: !IAQ ? IAQ : Math.floor(IAQ),
+        const res: Processed = {
+            ...t,
+            IAQ: IAQ,
             level: level
         };
-        return out;
+        return res;
     }
 }
 

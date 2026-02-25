@@ -19,11 +19,11 @@ export default function Devices() {
   const [disconnectErr, setDisconnectErr] = useState<string | null>(null);
   const [target, setTarget] = useState<Device | null>(null);
 
-const [editOpen, setEditOpen] = useState(false);
-const [editing, setEditing] = useState(false);
-const [editErr, setEditErr] = useState<string | null>(null);
-const [editTarget, setEditTarget] = useState<Device | null>(null);
-const [editForm, setEditForm] = useState<{ name: string; location: string }>({ name: '', location: '' });
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editErr, setEditErr] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<Device | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; location: string }>({ name: '', location: '' });
 
 
   const noDevices = devices.length === 0;
@@ -55,26 +55,26 @@ const [editForm, setEditForm] = useState<{ name: string; location: string }>({ n
 
 
 
-async function onEditConfirm() {
-  if (!editTarget) return;
-  try {
-    setEditErr(null);
-    setEditing(true);
+  async function onEditConfirm() {
+    if (!editTarget) return;
+    try {
+      setEditErr(null);
+      setEditing(true);
 
-    await updateDevice(editTarget.device_id, {
-      name: editForm.name.trim() || undefined,
-      location: editForm.location.trim() || undefined
-    });
+      await updateDevice(editTarget.device_id, {
+        name: editForm.name.trim() || undefined,
+        location: editForm.location.trim() || undefined
+      });
 
-    await refresh();
-    setEditOpen(false);
-    setEditTarget(null);
-  } catch (e: any) {
-    setEditErr(e?.message || 'Không thể cập nhật thiết bị');
-  } finally {
-    setEditing(false);
+      await refresh();
+      setEditOpen(false);
+      setEditTarget(null);
+    } catch (e: any) {
+      setEditErr(e?.message || 'Không thể cập nhật thiết bị');
+    } finally {
+      setEditing(false);
+    }
   }
-}
 
   async function onDisconnectConfirm() {
     if (!target) return;
@@ -97,7 +97,9 @@ async function onEditConfirm() {
       {error ? <ErrorState message={error} /> : null}
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="text-sm text-slate-600">Quản lý danh sách thiết bị. Chọn 1 thiết bị để xem dữ liệu.</div>
+        <div className="text-sm text-slate-600">
+          Quản lý danh sách thiết bị. Chọn 1 thiết bị để xem dữ liệu.
+        </div>
 
         <button
           className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
@@ -117,7 +119,7 @@ async function onEditConfirm() {
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="text-sm font-semibold text-slate-900">Danh sách thiết bị đang rỗng</div>
           <div className="mt-1 text-sm text-slate-600">
-            Nhấn <b>Thêm thiết bị</b> để tạo thiết bị mới. (Nếu bật <b>MOCK</b> thì sẽ có sẵn 2 thiết bị.)
+            Nhấn <b>Thêm thiết bị</b> để tạo thiết bị mới.
           </div>
         </div>
       ) : null}
@@ -138,9 +140,8 @@ async function onEditConfirm() {
                   setDeviceId(d.device_id);
                 }
               }}
-              className={`rounded-2xl border p-4 shadow-sm bg-white transition-colors cursor-pointer hover:bg-slate-50 ${
-                active ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
-              }`}
+              className={`rounded-2xl border p-4 shadow-sm bg-white transition-colors cursor-pointer hover:bg-slate-50 ${active ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
+                }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 text-left rounded-xl px-2 py-1">
@@ -148,11 +149,10 @@ async function onEditConfirm() {
                     <div className="text-sm font-semibold text-slate-900">{d.name || d.device_id}</div>
                     {d.status ? (
                       <span
-                        className={`rounded-full border px-2 py-1 text-xs ${
-                          d.status === 'online'
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                            : 'border-slate-200 bg-slate-50 text-slate-700'
-                        }`}
+                        className={`rounded-full border px-2 py-1 text-xs ${d.status === 'online'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                          : 'border-slate-200 bg-slate-50 text-slate-700'
+                          }`}
                       >
                         {d.status}
                       </span>
@@ -165,31 +165,31 @@ async function onEditConfirm() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-  <button
-    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
-    onClick={(e) => {
-      e.stopPropagation();
-      setEditTarget(d);
-      setEditErr(null);
-      setEditForm({ name: d.name || '', location: d.location || '' });
-      setEditOpen(true);
-    }}
-  >
-    Edit
-  </button>
+                  <button
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditTarget(d);
+                      setEditErr(null);
+                      setEditForm({ name: d.name || '', location: d.location || '' });
+                      setEditOpen(true);
+                    }}
+                  >
+                    Edit
+                  </button>
 
-  <button
-    className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-100"
-    onClick={(e) => {
-      e.stopPropagation();
-      setTarget(d);
-      setDisconnectErr(null);
-      setDisconnectOpen(true);
-    }}
-  >
-    Disconnect
-  </button>
-</div>
+                  <button
+                    className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTarget(d);
+                      setDisconnectErr(null);
+                      setDisconnectOpen(true);
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
               </div>
 
               {active ? <div className="mt-3 text-xs text-slate-600">Đang được chọn</div> : null}
@@ -221,7 +221,7 @@ async function onEditConfirm() {
                 <div className="text-xs font-semibold text-slate-600">device_id *</div>
                 <input
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="vd: esp32-003"
+                  placeholder="vd: esp32-<index>"
                   value={form.device_id}
                   onChange={(e) => setForm({ ...form, device_id: e.target.value })}
                 />
@@ -255,20 +255,16 @@ async function onEditConfirm() {
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50"
                 onClick={() => setOpen(false)}
                 disabled={saving}
-              >
-                Hủy
-              </button>
+              >Hủy</button>
               <button
                 className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
                 onClick={onAdd}
                 disabled={!canSubmit}
-              >
-                {saving ? 'Đang thêm...' : 'Thêm'}
-              </button>
+              >{saving ? 'Đang thêm...' : 'Thêm'}</button>
             </div>
 
             <div className="mt-3 text-xs text-slate-500">
-              Backend thật nên hỗ trợ <code>POST /devices</code> để lưu thiết bị.
+              Backend - hỗ trợ <code>POST /devices</code> để lưu thiết bị.
             </div>
           </div>
         </div>
@@ -276,84 +272,84 @@ async function onEditConfirm() {
 
 
 
-{/* Modal: Edit device */}
-{editOpen && editTarget ? (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-    <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-lg">
-      <div className="flex items-center justify-between">
-        <div className="text-base font-semibold text-slate-900">Chỉnh sửa thiết bị</div>
-        <button
-          className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm hover:bg-slate-50"
-          onClick={() => {
-            if (editing) return;
-            setEditOpen(false);
-            setEditErr(null);
-            setEditTarget(null);
-          }}
-        >
-          Đóng
-        </button>
-      </div>
+      {/* Modal: Edit device */}
+      {editOpen && editTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="text-base font-semibold text-slate-900">Chỉnh sửa thiết bị</div>
+              <button
+                className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm hover:bg-slate-50"
+                onClick={() => {
+                  if (editing) return;
+                  setEditOpen(false);
+                  setEditErr(null);
+                  setEditTarget(null);
+                }}
+              >
+                Đóng
+              </button>
+            </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <div className="text-sm font-semibold text-slate-900">
-          Thiết bị: <b>{editTarget.name || editTarget.device_id}</b>
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-sm font-semibold text-slate-900">
+                Thiết bị: <b>{editTarget.name || editTarget.device_id}</b>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">ID: {editTarget.device_id}</div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4">
+              <div>
+                <div className="text-xs font-semibold text-slate-600">Tên hiển thị</div>
+                <input
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="vd: ESP32 Phòng bếp"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-600">Vị trí</div>
+                <input
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="vd: Phòng bếp"
+                  value={editForm.location}
+                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {editErr ? <div className="mt-3 text-sm text-rose-700">{editErr}</div> : null}
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+                onClick={() => {
+                  if (editing) return;
+                  setEditOpen(false);
+                  setEditErr(null);
+                  setEditTarget(null);
+                }}
+                disabled={editing}
+              >
+                Hủy
+              </button>
+              <button
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                onClick={onEditConfirm}
+                disabled={editing}
+              >
+                {editing ? 'Đang lưu...' : 'Lưu'}
+              </button>
+            </div>
+
+            <div className="mt-3 text-xs text-slate-500">
+              Backend thật nên hỗ trợ <code>PATCH /devices/:device_id</code>.
+            </div>
+          </div>
         </div>
-        <div className="mt-1 text-xs text-slate-500">ID: {editTarget.device_id}</div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4">
-        <div>
-          <div className="text-xs font-semibold text-slate-600">Tên hiển thị</div>
-          <input
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            placeholder="vd: ESP32 Phòng bếp"
-            value={editForm.name}
-            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-          />
-        </div>
-
-        <div>
-          <div className="text-xs font-semibold text-slate-600">Vị trí</div>
-          <input
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            placeholder="vd: Phòng bếp"
-            value={editForm.location}
-            onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-          />
-        </div>
-      </div>
-
-      {editErr ? <div className="mt-3 text-sm text-rose-700">{editErr}</div> : null}
-
-      <div className="mt-5 flex items-center justify-end gap-2">
-        <button
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50"
-          onClick={() => {
-            if (editing) return;
-            setEditOpen(false);
-            setEditErr(null);
-            setEditTarget(null);
-          }}
-          disabled={editing}
-        >
-          Hủy
-        </button>
-        <button
-          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-          onClick={onEditConfirm}
-          disabled={editing}
-        >
-          {editing ? 'Đang lưu...' : 'Lưu'}
-        </button>
-      </div>
-
-      <div className="mt-3 text-xs text-slate-500">
-        Backend thật nên hỗ trợ <code>PATCH /devices/:device_id</code>.
-      </div>
-    </div>
-  </div>
-) : null}
+      ) : null}
 
       {/* Modal: Confirm disconnect */}
       {disconnectOpen && target ? (
