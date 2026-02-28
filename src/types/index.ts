@@ -1,15 +1,16 @@
 export type DeviceStatus = 'online' | 'offline';
 
 export interface Device {
-  deviceId: string;
-  name: string | undefined;
+  // NOTE: REST API uses snake_case for devices.
+  device_id: string;
+  name?: string | undefined;
   status?: DeviceStatus;
-  last_seen?: number; // unix stamp
+  last_seen?: number; // unix seconds
 }
 
 export interface Telemetry {
   deviceId: string;
-  ts: number;
+  ts: number; // unix seconds
   temp?: number | undefined;
   hum?: number | undefined;
   gas?: number | undefined;
@@ -18,12 +19,12 @@ export interface Telemetry {
 
 export interface Processed {
   deviceId: string;
-  ts: number;
+  ts: number; // unix seconds
   temp?: number | undefined;
   hum?: number | undefined;
   gas?: number | undefined;
   dust?: number | undefined;
-  IAQ: number | undefined;
+  IAQ: number | undefined; // 0..100, 100 is best
   level: 'SAFE' | 'WARN' | 'DANGER' | undefined;
 };
 

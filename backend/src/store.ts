@@ -14,16 +14,17 @@ export function nowTs(): number {
     return Math.trunc(Date.now() / 1000);
 }
 
-export function parseIntervalToMs(interval?: string): number {
-    if (!interval) return 60_000;
+// NOTE: project uses unix seconds everywhere.
+export function parseIntervalToSec(interval?: string): number {
+    if (!interval) return 60;
     const m = interval.trim().match(/^(\d+)(ms|s|m|h)$/i);
-    if (!m) return 60_000;
+    if (!m) return 60;
     const value = Number(m[1]);
     const unit = m[2]!.toLowerCase();
-    if (unit === 'ms') return value;
-    if (unit === 's') return value * 1000;
-    if (unit === 'm') return value * 60_000;
-    return value * 3_600_000;
+    if (unit === 'ms') return Math.max(1, Math.trunc(value / 1000));
+    if (unit === 's') return value;
+    if (unit === 'm') return value * 60;
+    return value * 3600;
 }
 
 function defaultSettings(device_id: string): ThresholdSettings {
@@ -52,13 +53,26 @@ export function getDevice(deviceId: string): Device | undefined {
     return devices.get(deviceId);
 }
 
+// Update last_seen for an existing device (does NOT create a new device).
+export function touchDevice(deviceId: string, last_seen?: number): Device | null {
+    const prev = devices.get(deviceId);
+    if (!prev) return null;
+    const next: Device = {
+        ...prev,
+        last_seen: last_seen ?? nowTs(),
+        // status will be recomputed on read
+        status: prev.status ?? 'offline',
+    };
+    devices.set(deviceId, next);
+    return next;
+}
+
 export function upsertDevice(deviceId: string, data?: Partial<Device>): Device {
     const prev = devices.get(deviceId);
     const last_seen = nowTs();
     const next: Device = {
         device_id: deviceId,
         name: data?.name ?? prev?.name ?? "",
-        location: data?.location ?? prev?.location ?? "",
         last_seen,
         status: 'online', // will be recomputed later
     };
@@ -72,7 +86,6 @@ export function updateDevice(deviceId: string, patch: Partial<Device>): Device |
     const next: Device = {
         ...prev,
         name: patch.name ?? prev.name ?? "",
-        location: patch.location ?? prev.location ?? "",
     };
     devices.set(deviceId, next);
     return next;
@@ -105,10 +118,10 @@ export function storeProcessed(p: Processed): void {
     historyByDevice.set(p.deviceId, arr);
 }
 
-export function getHistory(deviceId: string, fromMs: number, toMs: number, interval?: string): Processed[] {
+export function getHistory(deviceId: string, fromSec: number, toSec: number, interval?: string): Processed[] {
     const raw = historyByDevice.get(deviceId) ?? [];
-    const filtered = raw.filter(p => p.ts >= fromMs && p.ts <= toMs);
-    const step = parseIntervalToMs(interval || '60s');
+    const filtered = raw.filter(p => p.ts >= fromSec && p.ts <= toSec);
+    const step = parseIntervalToSec(interval || '60s');
     const out: Processed[] = [];
     let bucketStart = -Infinity;
     for (const p of filtered) {
@@ -121,14 +134,14 @@ export function getHistory(deviceId: string, fromMs: number, toMs: number, inter
 }
 
 // Alerts
-export function pushAlertIfNeeded(p: Processed): void {
-    if (p.level !== 'WARN' && p.level !== 'DANGER') return;
+export function pushAlertIfNeeded(p: Processed): AlertItem | null {
+    if (p.level !== 'WARN' && p.level !== 'DANGER') return null;
     const list = alertsByDevice.get(p.deviceId) ?? [];
     const last = list[0];
     const lastTs = last ? last.ts : 0;
     const thisTs = p.ts;
     const changed = !last || last.level !== (p.level === 'WARN' ? 'WARN' : 'DANGER');
-    const stale = thisTs - lastTs > 60_000;
+    const stale = thisTs - lastTs > 60;
 
     if (changed || stale) {
         const level: AlertItem['level'] = p.level === 'WARN' ? 'WARN' : 'DANGER';
@@ -145,14 +158,16 @@ export function pushAlertIfNeeded(p: Processed): void {
         list.unshift(item);
         if (list.length > 500) list.splice(500);
         alertsByDevice.set(p.deviceId, list);
+        return item;
     }
+    return null;
 }
 
-export function getAlerts(deviceId: string, fromMs?: number, toMs?: number): AlertItem[] {
+export function getAlerts(deviceId: string, fromSec?: number, toSec?: number): AlertItem[] {
     const list = alertsByDevice.get(deviceId) ?? [];
     return list.filter(a => {
         const t = a.ts;
-        return (fromMs === undefined || t >= fromMs) && (toMs === undefined || t <= toMs);
+        return (fromSec === undefined || t >= fromSec) && (toSec === undefined || t <= toSec);
     });
 }
 

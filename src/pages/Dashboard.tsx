@@ -8,6 +8,7 @@ import { hasDeviceId } from '../utils/deviceGuard';
 import { useDeviceContext } from '../components/layout/DeviceProvider';
 import type { Processed } from '../types';
 import { bannerCopy, iaqCardColors } from '../utils/iaq';
+import { getLatest } from '../api/sensorApi';
 
 export default function Dashboard() {
   const { deviceId, devices } = useDeviceContext();
@@ -26,6 +27,16 @@ export default function Dashboard() {
     const wsUrl = (import.meta as any).env.VITE_WS_URL || 'ws://localhost:8080';
     let ws: WebSocket | null = null;
     let cancelled = false;
+
+    // 1) Fetch last known value (so the dashboard isn't empty while waiting for WS)
+    (async () => {
+      try {
+        const last = await getLatest(deviceId);
+        if (!cancelled) setLatest(last);
+      } catch {
+        // ignore - WS will still update
+      }
+    })();
 
     try {
       setWsState('connecting');

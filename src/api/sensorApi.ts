@@ -24,7 +24,7 @@ export async function disconnectDevice(device_id: string): Promise<{ ok: true }>
 
 
 
-// Update device metadata (display name / location).
+// Update device metadata (display name).
 // Backend suggestion: implement PATCH /devices/:device_id
 export async function updateDevice(device_id: string, patch: Partial<Device>): Promise<Device> {
   if (isMockEnabled()) return mock.updateDevice(device_id, patch);

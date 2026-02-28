@@ -2,49 +2,72 @@ import express from 'express';
 import * as store from './store.js';
 import { nowTs } from './store.js';
 import type { Processed, ThresholdSettings } from '../../src/types/index.js';
+import { dbPing, dbEnabled } from './db.js';
+import * as repo from './repo.js';
 
 const router = express.Router();
 
 // Health
-router.get('/health', (_req, res) => res.json({ ok: true }));
-
-// Devices
-router.get('/devices', (_req, res) => {
-    res.json(store.getDevices());
+router.get('/health', async (_req, res) => {
+    const mysql = dbEnabled() ? await dbPing() : false;
+    res.json({ ok: true, mysql });
 });
 
-router.post('/devices', (req, res) => {
-    const body = (req.body ?? {}) as Partial<{ device_id: string; name: string; location: string }>;
+// Devices
+router.get('/devices', async (_req, res) => {
+    if (dbEnabled()) {
+        const list = await repo.listDevices();
+        // compute status in the same way as in-memory store
+        const out = list.map(d => ({ ...d, status: store.computeStatus(d.last_seen) }));
+        return res.json(out);
+    }
+    return res.json(store.getDevices());
+});
+
+router.post('/devices', async (req, res) => {
+    const body = (req.body ?? {}) as Partial<{ device_id: string; name: string }>;
     const device_id = String(body.device_id ?? '').trim();
     if (!device_id) return res.status(400).json({ message: 'device_id is required' });
 
     const device = store.upsertDevice(device_id, body);
+    if (dbEnabled()) {
+        await repo.upsertDevice({ device_id, name: body.name ?? '', last_seen: device.last_seen ?? nowTs() });
+    }
     res.json(device);
 });
 
-router.patch('/devices/:device_id', (req, res) => {
+router.patch('/devices/:device_id', async (req, res) => {
     const device_id = String(req.params.device_id ?? '').trim();
     if (!device_id) return res.status(400).json({ message: 'device_id is required' });
 
-    const patch = (req.body ?? {}) as Partial<{ name: string; location: string }>;
+    const patch = (req.body ?? {}) as Partial<{ name: string }>;
     const updated = store.updateDevice(device_id, patch);
+    if (dbEnabled()) {
+        const dbUpdated = await repo.updateDeviceMeta(device_id, patch);
+        if (dbUpdated) return res.json({ ...dbUpdated, status: store.computeStatus(dbUpdated.last_seen) });
+    }
     if (!updated) return res.status(404).json({ message: 'Device not found' });
-    res.json(updated);
+    return res.json(updated);
 });
 
-router.delete('/devices/:device_id', (req, res) => {
+router.delete('/devices/:device_id', async (req, res) => {
     const device_id = String(req.params.device_id ?? '').trim();
     if (!device_id) return res.status(400).json({ message: 'device_id is required' });
 
     store.deleteDevice(device_id);
+    if (dbEnabled()) await repo.deleteDevice(device_id);
     res.json({ ok: true });
 });
 
 // Latest telemetry
-router.get('/latest', (req, res) => {
+router.get('/latest', async (req, res) => {
     const device_id = String(req.query.device_id ?? '').trim();
     if (!device_id) return res.status(400).json({ message: 'device_id is required' });
 
+    if (dbEnabled()) {
+        const v = await repo.getLatest(device_id);
+        if (v) return res.json(v);
+    }
     const v = store.getLatest(device_id);
     if (v) return res.json(v);
 
@@ -63,7 +86,7 @@ router.get('/latest', (req, res) => {
 });
 
 // History
-router.get('/history', (req, res) => {
+router.get('/history', async (req, res) => {
     const device_id = String(req.query.device_id ?? '').trim();
     const fromIso = String(req.query.from ?? '').trim();
     const toIso = String(req.query.to ?? '').trim();
@@ -78,12 +101,21 @@ router.get('/history', (req, res) => {
         return res.status(400).json({ message: 'from/to must be ISO datetime' });
     }
 
-    const points = store.getHistory(device_id, fromMs, toMs, interval);
-    res.json({ points });
+    const fromSec = Math.trunc(fromMs / 1000);
+    const toSec = Math.trunc(toMs / 1000);
+    const intervalSec = store.parseIntervalToSec(interval || '60s');
+
+    if (dbEnabled()) {
+        const points = await repo.getHistory(device_id, fromSec, toSec, intervalSec);
+        return res.json({ points });
+    }
+
+    const points = store.getHistory(device_id, fromSec, toSec, interval);
+    return res.json({ points });
 });
 
 // Alerts
-router.get('/alerts', (req, res) => {
+router.get('/alerts', async (req, res) => {
     const device_id = String(req.query.device_id ?? '').trim();
     if (!device_id) return res.status(400).json({ message: 'device_id is required' });
 
@@ -96,24 +128,38 @@ router.get('/alerts', (req, res) => {
         return res.status(400).json({ message: 'Invalid date format' });
     }
 
-    const alerts = store.getAlerts(device_id, fromMs, toMs);
-    res.json(alerts);
+    const fromSec = typeof fromMs === 'number' ? Math.trunc(fromMs / 1000) : undefined;
+    const toSec = typeof toMs === 'number' ? Math.trunc(toMs / 1000) : undefined;
+
+    if (dbEnabled()) {
+        const alerts = await repo.getAlerts(device_id, fromSec, toSec);
+        return res.json(alerts);
+    }
+
+    const alerts = store.getAlerts(device_id, fromSec, toSec);
+    return res.json(alerts);
 });
 
 // Settings
-router.get('/settings', (req, res) => {
+router.get('/settings', async (req, res) => {
     const device_id = String(req.query.device_id ?? '').trim();
     if (!device_id) return res.status(400).json({ message: 'device_id is required' });
-    res.json(store.getSettings(device_id));
+
+    if (dbEnabled()) {
+        const s = await repo.getSettings(device_id);
+        if (s) return res.json(s);
+    }
+    return res.json(store.getSettings(device_id));
 });
 
-router.post('/settings', (req, res) => {
+router.post('/settings', async (req, res) => {
     const body = (req.body ?? {}) as Partial<ThresholdSettings>;
     const device_id = String(body.device_id ?? '').trim();
     if (!device_id) return res.status(400).json({ message: 'device_id is required' });
 
     const updated = store.updateSettings(device_id, body);
-    res.json({ ok: true, settings: updated });
+    if (dbEnabled()) await repo.upsertSettings(updated);
+    return res.json({ ok: true, settings: updated });
 });
 
 export default router;

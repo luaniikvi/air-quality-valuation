@@ -10,7 +10,7 @@ export default function Devices() {
   const { devices, deviceId, setDeviceId, loading, error, refresh } = useDeviceContext();
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<Device>({ device_id: '', name: '', location: '' });
+  const [form, setForm] = useState<{ device_id: string; name: string }>({ device_id: '', name: '' });
   const [saving, setSaving] = useState(false);
   const [localErr, setLocalErr] = useState<string | null>(null);
 
@@ -23,11 +23,9 @@ export default function Devices() {
   const [editing, setEditing] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<Device | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; location: string }>({ name: '', location: '' });
-
+  const [editForm, setEditForm] = useState<{ name: string }>({ name: '' });
 
   const noDevices = devices.length === 0;
-
   const canSubmit = useMemo(() => form.device_id.trim().length > 0 && !saving, [form.device_id, saving]);
 
   async function onAdd() {
@@ -37,23 +35,19 @@ export default function Devices() {
 
       const created = await addDevice({
         device_id: form.device_id.trim(),
-        name: form.name?.trim(),
-        location: form.location?.trim()
+        name: form.name.trim() || undefined,
       });
 
       await refresh();
       setDeviceId(created.device_id);
-
       setOpen(false);
-      setForm({ device_id: '', name: '', location: '' });
+      setForm({ device_id: '', name: '' });
     } catch (e: any) {
       setLocalErr(e?.message || 'Không thêm được thiết bị');
     } finally {
       setSaving(false);
     }
   }
-
-
 
   async function onEditConfirm() {
     if (!editTarget) return;
@@ -63,7 +57,6 @@ export default function Devices() {
 
       await updateDevice(editTarget.device_id, {
         name: editForm.name.trim() || undefined,
-        location: editForm.location.trim() || undefined
       });
 
       await refresh();
@@ -97,9 +90,7 @@ export default function Devices() {
       {error ? <ErrorState message={error} /> : null}
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="text-sm text-slate-600">
-          Quản lý danh sách thiết bị. Chọn 1 thiết bị để xem dữ liệu.
-        </div>
+        <div className="text-sm text-slate-600">Quản lý danh sách thiết bị. Chọn 1 thiết bị để xem dữ liệu.</div>
 
         <button
           className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
@@ -124,24 +115,16 @@ export default function Devices() {
         </div>
       ) : null}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-3">
         {devices.map((d) => {
           const active = d.device_id === deviceId;
-
           return (
             <div
               key={d.device_id}
-              role="button"
-              tabIndex={0}
               onClick={() => setDeviceId(d.device_id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setDeviceId(d.device_id);
-                }
-              }}
-              className={`rounded-2xl border p-4 shadow-sm bg-white transition-colors cursor-pointer hover:bg-slate-50 ${active ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
-                }`}
+              className={`rounded-2xl border p-4 shadow-sm bg-white transition-colors cursor-pointer hover:bg-slate-50 ${
+                active ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
+              }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 text-left rounded-xl px-2 py-1">
@@ -149,10 +132,11 @@ export default function Devices() {
                     <div className="text-sm font-semibold text-slate-900">{d.name || d.device_id}</div>
                     {d.status ? (
                       <span
-                        className={`rounded-full border px-2 py-1 text-xs ${d.status === 'online'
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                          : 'border-slate-200 bg-slate-50 text-slate-700'
-                          }`}
+                        className={`rounded-full border px-2 py-1 text-xs ${
+                          d.status === 'online'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                            : 'border-slate-200 bg-slate-50 text-slate-700'
+                        }`}
                       >
                         {d.status}
                       </span>
@@ -160,7 +144,6 @@ export default function Devices() {
                   </div>
 
                   <div className="mt-2 text-xs text-slate-500">ID: {d.device_id}</div>
-                  {d.location ? <div className="mt-1 text-xs text-slate-500">Vị trí: {d.location}</div> : null}
                   {d.last_seen ? <div className="mt-1 text-xs text-slate-500">Cập nhật: {d.last_seen}</div> : null}
                 </div>
 
@@ -171,7 +154,7 @@ export default function Devices() {
                       e.stopPropagation();
                       setEditTarget(d);
                       setEditErr(null);
-                      setEditForm({ name: d.name || '', location: d.location || '' });
+                      setEditForm({ name: d.name || '' });
                       setEditOpen(true);
                     }}
                   >
@@ -221,7 +204,7 @@ export default function Devices() {
                 <div className="text-xs font-semibold text-slate-600">device_id *</div>
                 <input
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="vd: esp32-<index>"
+                  placeholder="vd: esp32-001"
                   value={form.device_id}
                   onChange={(e) => setForm({ ...form, device_id: e.target.value })}
                 />
@@ -232,18 +215,8 @@ export default function Devices() {
                 <input
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                   placeholder="vd: ESP32 Phòng bếp"
-                  value={form.name || ''}
+                  value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <div className="text-xs font-semibold text-slate-600">Vị trí</div>
-                <input
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="vd: Phòng bếp"
-                  value={form.location || ''}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
                 />
               </div>
             </div>
@@ -255,12 +228,16 @@ export default function Devices() {
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50"
                 onClick={() => setOpen(false)}
                 disabled={saving}
-              >Hủy</button>
+              >
+                Hủy
+              </button>
               <button
                 className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
                 onClick={onAdd}
                 disabled={!canSubmit}
-              >{saving ? 'Đang thêm...' : 'Thêm'}</button>
+              >
+                {saving ? 'Đang thêm...' : 'Thêm'}
+              </button>
             </div>
 
             <div className="mt-3 text-xs text-slate-500">
@@ -269,8 +246,6 @@ export default function Devices() {
           </div>
         </div>
       ) : null}
-
-
 
       {/* Modal: Edit device */}
       {editOpen && editTarget ? (
@@ -305,17 +280,7 @@ export default function Devices() {
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                   placeholder="vd: ESP32 Phòng bếp"
                   value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <div className="text-xs font-semibold text-slate-600">Vị trí</div>
-                <input
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="vd: Phòng bếp"
-                  value={editForm.location}
-                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  onChange={(e) => setEditForm({ name: e.target.value })}
                 />
               </div>
             </div>
@@ -344,9 +309,7 @@ export default function Devices() {
               </button>
             </div>
 
-            <div className="mt-3 text-xs text-slate-500">
-              Backend thật nên hỗ trợ <code>PATCH /devices/:device_id</code>.
-            </div>
+            <div className="mt-3 text-xs text-slate-500">Backend thật nên hỗ trợ <code>PATCH /devices/:device_id</code>.</div>
           </div>
         </div>
       ) : null}
@@ -371,16 +334,9 @@ export default function Devices() {
             </div>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="text-sm font-semibold text-slate-900">
-                Bạn có chắc muốn ngắt kết nối thiết bị này không?
-              </div>
-              <div className="mt-1 text-sm text-slate-700">
-                Thiết bị: <b>{target.name || target.device_id}</b>
-              </div>
+              <div className="text-sm font-semibold text-slate-900">Bạn có chắc muốn ngắt kết nối thiết bị này không?</div>
+              <div className="mt-1 text-sm text-slate-700">Thiết bị: <b>{target.name || target.device_id}</b></div>
               <div className="mt-1 text-xs text-slate-500">ID: {target.device_id}</div>
-              <div className="mt-3 text-xs text-slate-500">
-                Lưu ý: thao tác này sẽ xóa thiết bị khỏi danh sách trong web (không tắt phần cứng).
-              </div>
             </div>
 
             {disconnectErr ? <div className="mt-3 text-sm text-rose-700">{disconnectErr}</div> : null}
@@ -399,13 +355,15 @@ export default function Devices() {
                 Hủy
               </button>
               <button
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-60"
                 onClick={onDisconnectConfirm}
                 disabled={disconnecting}
               >
                 {disconnecting ? 'Đang ngắt...' : 'Ngắt kết nối'}
               </button>
             </div>
+
+            <div className="mt-3 text-xs text-slate-500">Backend - hỗ trợ <code>DELETE /devices/:device_id</code>.</div>
           </div>
         </div>
       ) : null}

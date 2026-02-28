@@ -66,8 +66,8 @@ export function iaqCalculate(temp?: number, hum?: number, dust?: number, gas?: n
     return Math.trunc(Math.min(...scores));
 }
 export function iaqToLevel(IAQ?: number): Processed["level"] {
-    if (IAQ === undefined || IAQ == null) undefined;
-    return IAQ! >= 80 ? "SAFE" : IAQ! >= 60 ? "WARN" : "DANGER";
+    if (IAQ === undefined || IAQ == null) return undefined;
+    return IAQ >= 80 ? "SAFE" : IAQ >= 60 ? "WARN" : "DANGER";
 }
 
 export class TelemetryProcessor {
