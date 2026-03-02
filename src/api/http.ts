@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const baseURL = String(import.meta.env.VITE_API_BASE || '').trim() || 'http://localhost:3000/api';
+// Prefer a relative base URL so the app can be deployed behind a reverse proxy
+// without changing any code (same-origin: https://your-domain.com/api).
+// For local dev you can either:
+// - set VITE_API_BASE=http://localhost:8080/api, or
+// - rely on Vite proxy (/api -> localhost:8080)
+const baseURL = String(import.meta.env.VITE_API_BASE || '').trim() || '/api';
 
 export const http = axios.create({
     baseURL,

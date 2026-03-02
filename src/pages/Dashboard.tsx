@@ -1,3 +1,4 @@
+import type { IaqSettings } from '../types';
 import { useEffect, useMemo, useState } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import MetricCard from '../components/cards/MetricCard';
@@ -8,15 +9,16 @@ import { hasDeviceId } from '../utils/deviceGuard';
 import { useDeviceContext } from '../components/layout/DeviceProvider';
 import type { Processed } from '../types';
 import { bannerCopy, iaqCardColors } from '../utils/iaq';
-import { getLatest } from '../api/sensorApi';
+import { getLatest, getSettings } from '../api/sensorApi';
 
 export default function Dashboard() {
+  const [settings, setSettings] = useState<IaqSettings | null>(null);
   const { deviceId, devices } = useDeviceContext();
   const noDevice = !hasDeviceId(deviceId) || devices.length === 0;
 
   const [latest, setLatest] = useState<Processed | null>(null);
   const [wsState, setWsState] = useState<'off' | 'connecting' | 'connected' | 'error' | 'closed'>('off');
-
+  if (settings) { };
   useEffect(() => {
     if (!hasDeviceId(deviceId)) {
       setLatest(null);
@@ -24,18 +26,41 @@ export default function Dashboard() {
       return;
     }
 
-    const wsUrl = (import.meta as any).env.VITE_WS_URL || 'ws://localhost:8080';
+    const wsUrl = (() => {
+      const envWs = (import.meta as any).env.VITE_WS_URL as string | undefined;
+      if (envWs && String(envWs).trim()) return String(envWs).trim();
+
+      // If VITE_API_BASE is an absolute URL (local dev), derive WS from it.
+      const apiBase = (import.meta as any).env.VITE_API_BASE as string | undefined;
+      if (apiBase && /^https?:\/\//i.test(apiBase)) {
+        try {
+          const u = new URL(apiBase);
+          u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+          u.pathname = '/ws';
+          u.search = '';
+          u.hash = '';
+          return u.toString();
+        } catch {
+          // ignore
+        }
+      }
+
+      // Production default: same origin, /ws
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${proto}//${window.location.host}/ws`;
+    })();
     let ws: WebSocket | null = null;
     let cancelled = false;
 
     // 1) Fetch last known value (so the dashboard isn't empty while waiting for WS)
     (async () => {
       try {
-        const last = await getLatest(deviceId);
-        if (!cancelled) setLatest(last);
-      } catch {
-        // ignore - WS will still update
-      }
+        const [last, s] = await Promise.all([getLatest(deviceId), getSettings(deviceId)]);
+        if (!cancelled) {
+          setLatest(last);
+          setSettings(s);
+        }
+      } catch { }
     })();
 
     try {
@@ -51,16 +76,40 @@ export default function Dashboard() {
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data) as Partial<Processed>;
-          if (typeof msg.ts === 'undefined') return;
-          if (msg.deviceId === deviceId) {
-            setLatest((prev) => {
-              if (!prev || msg.ts! > prev.ts) {
-                return msg as Processed;
-              }
-              return prev;
-            });
-          }
-        } catch (err) { console.error("WS Message Error:", err); }
+
+          const ts = msg.ts;
+          if (typeof ts !== "number") return;
+
+          if (msg.deviceId !== deviceId) return;
+
+          setLatest((prev) => {
+            const prevSafe =
+              prev ??
+              ({
+                deviceId,
+                ts: 0,
+                temp: undefined,
+                hum: undefined,
+                gas: undefined,
+                dust: undefined,
+                IAQ: undefined,
+                level: undefined,
+              } as Processed);
+
+            if (ts < prevSafe.ts) return prevSafe;
+
+            const merged: Processed = {
+              ...prevSafe,
+              ...msg,
+              deviceId,
+              ts,
+            };
+
+            return merged;
+          });
+        } catch (e) {
+          console.error(e);
+        }
       };
 
       ws.onerror = () => {

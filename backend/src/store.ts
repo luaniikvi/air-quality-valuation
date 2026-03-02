@@ -1,13 +1,13 @@
 // store.ts
-import { randomUUID } from 'crypto';
-import type { AlertItem, Device, Processed, ThresholdSettings } from '../../src/types/index.js';
+import type { AlertItem, Device, Processed, IaqSettings } from './types.js';
 
 // In-memory maps
+let nextAlertId = 1;
 const devices = new Map<string, Device>();
 const latestByDevice = new Map<string, Processed>();
 const historyByDevice = new Map<string, Processed[]>();
 const alertsByDevice = new Map<string, AlertItem[]>();
-const settingsByDevice = new Map<string, ThresholdSettings>();
+const settingsByDevice = new Map<string, IaqSettings>();
 
 // Utility functions
 export function nowTs(): number {
@@ -27,17 +27,42 @@ export function parseIntervalToSec(interval?: string): number {
     return value * 3600;
 }
 
-function defaultSettings(device_id: string): ThresholdSettings {
+function defaultSettings(device_id: string): IaqSettings {
     return {
         device_id,
-        gas_warn: 800,
-        gas_danger: 1200,
-        dust_warn: 0.08,
-        dust_danger: 0.15,
-        temp_low: 18,
-        temp_high: 32,
-        hum_low: 35,
-        hum_high: 75,
+
+        // ===== IAQ formula defaults (tuned for outdoor TP.HCM by default) =====
+        iaq_method: 'WEIGHTED_HARMONIC',
+
+        // Make dust/gas more important for outdoor city air.
+        w_temp: 0.10,
+        w_hum: 0.10,
+        w_dust: 0.45,
+        w_gas: 0.35,
+
+        // Temperature in TP.HCM is commonly higher than "indoor comfort".
+        // We keep a broad good band and low weight.
+        temp_a: 22,
+        temp_b: 26,
+        temp_c: 32,
+        temp_d: 38,
+
+        // Humidity is often high in TP.HCM; again, low weight.
+        hum_a: 40,
+        hum_b: 55,
+        hum_c: 80,
+        hum_d: 95,
+
+        // Dust is stored as mg/m3. 0.05 mg/m3 = 50 ug/m3.
+        dust_good: 0.05,
+        dust_bad: 0.20,
+
+        // MQ-2 ppm is relative; defaults are a practical starting point.
+        gas_good: 300,
+        gas_bad: 1500,
+
+        iaq_safe: 80,
+        iaq_warn: 60,
     };
 }
 
@@ -102,7 +127,9 @@ export function deleteDevice(deviceId: string): boolean {
 
 export function computeStatus(last_seen?: number): Device['status'] {
     if (!last_seen) return 'offline';
-    return (nowTs() - last_seen < 10 ? 'online' : 'offline')!;
+    const raw = Number(process.env.OFFLINE_AFTER_SEC ?? 30);
+    const offlineAfter = Number.isFinite(raw) && raw > 0 ? raw : 30;
+    return (nowTs() - last_seen < offlineAfter ? 'online' : 'offline')!;
 }
 
 // Telemetry store
@@ -135,32 +162,32 @@ export function getHistory(deviceId: string, fromSec: number, toSec: number, int
 
 // Alerts
 export function pushAlertIfNeeded(p: Processed): AlertItem | null {
+    // Only store alerts when IAQ is not safe
     if (p.level !== 'WARN' && p.level !== 'DANGER') return null;
+
     const list = alertsByDevice.get(p.deviceId) ?? [];
     const last = list[0];
     const lastTs = last ? last.ts : 0;
     const thisTs = p.ts;
-    const changed = !last || last.level !== (p.level === 'WARN' ? 'WARN' : 'DANGER');
+
+    // Create a new alert if level changed, or if the last alert is too old (keep UI "alive")
+    const changed = !last || last.level !== p.level;
     const stale = thisTs - lastTs > 60;
 
-    if (changed || stale) {
-        const level: AlertItem['level'] = p.level === 'WARN' ? 'WARN' : 'DANGER';
-        const msg = p.level === 'WARN' ? 'Chất lượng không khí đang ở mức cảnh báo' : 'Chất lượng không khí nguy hiểm!';
-        const item: AlertItem = {
-            id: randomUUID(),
-            device_id: p.deviceId,
-            ts: thisTs,
-            type: 'iaq',
-            value: typeof p.IAQ === 'number' ? p.IAQ : -1,
-            level,
-            message: msg,
-        };
-        list.unshift(item);
-        if (list.length > 500) list.splice(500);
-        alertsByDevice.set(p.deviceId, list);
-        return item;
-    }
-    return null;
+    if (!changed && !stale) return null;
+
+    const item: AlertItem = {
+        id: String(nextAlertId++),
+        device_id: p.deviceId,
+        ts: thisTs,
+        iaq: typeof p.IAQ === 'number' ? p.IAQ : null,
+        level: p.level,
+    };
+
+    list.unshift(item);
+    if (list.length > 500) list.splice(500);
+    alertsByDevice.set(p.deviceId, list);
+    return item;
 }
 
 export function getAlerts(deviceId: string, fromSec?: number, toSec?: number): AlertItem[] {
@@ -172,7 +199,7 @@ export function getAlerts(deviceId: string, fromSec?: number, toSec?: number): A
 }
 
 // Settings
-export function getSettings(deviceId: string): ThresholdSettings {
+export function getSettings(deviceId: string): IaqSettings {
     const s = settingsByDevice.get(deviceId);
     if (s) return s;
     const d = defaultSettings(deviceId);
@@ -180,7 +207,16 @@ export function getSettings(deviceId: string): ThresholdSettings {
     return d;
 }
 
-export function updateSettings(deviceId: string, patch: Partial<ThresholdSettings>): ThresholdSettings {
+// Return cached settings without creating defaults.
+export function peekSettings(deviceId: string): IaqSettings | undefined {
+    return settingsByDevice.get(deviceId);
+}
+
+export function setSettings(deviceId: string, s: IaqSettings): void {
+    settingsByDevice.set(deviceId, { ...s, device_id: deviceId });
+}
+
+export function updateSettings(deviceId: string, patch: Partial<IaqSettings>): IaqSettings {
     const current = getSettings(deviceId);
     const next = { ...current, ...patch, device_id: deviceId };
     settingsByDevice.set(deviceId, next);

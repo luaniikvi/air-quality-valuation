@@ -9,7 +9,7 @@ import DataTable from '../components/tables/DataTable';
 import { useDeviceContext } from '../components/layout/DeviceProvider';
 import { getHistory } from '../api/sensorApi';
 import type { Processed } from '../types';
-import { fmtDateTime, fmtTimeShort, isoMinusMs, isoNow } from '../utils/format';
+import { isoMinusMs, isoNow } from '../utils/format';
 
 const METRIC_COLORS: Record<string, string> = {
     temp: '#f97316', // orange
@@ -61,13 +61,18 @@ function toLocalInputValue(iso: string) {
     const dd = pad(d.getDate());
     const hh = pad(d.getHours());
     const mi = pad(d.getMinutes());
-    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
 }
 
 function fromLocalInputValue(v: string) {
     // treat as local time
     const d = new Date(v);
     return d.toISOString();
+}
+
+function unixSecondsToIso(tsSec: number) {
+    const d = new Date(tsSec * 1000);
+    return d.toISOString().replace('.000Z', '').replace("T", ' ');
 }
 
 function downloadCsv(filename: string, rows: string[][]) {
@@ -123,16 +128,14 @@ export default function History() {
             setLoading(false);
             return;
         }
-        // auto refresh when device changes
         run();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [deviceId]);
 
     const chartData = useMemo(() => {
         const byMetric: Record<string, Point[]> = {};
         for (const m of metrics) byMetric[m] = [];
         for (const p of points) {
-            const label = fmtTimeShort(String(p.ts));
+            const label = unixSecondsToIso(p.ts);
             for (const m of metrics) {
                 const v = (p as any)[m];
                 if (typeof v === 'number') byMetric[m].push({ label, value: v });
@@ -156,6 +159,7 @@ export default function History() {
                             <div className="text-xs font-semibold text-slate-600">From</div>
                             <input
                                 type="datetime-local"
+                                lang="en-US"
                                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                                 value={from}
                                 onChange={(e) => setFrom(e.target.value)}
@@ -165,6 +169,7 @@ export default function History() {
                             <div className="text-xs font-semibold text-slate-600">To</div>
                             <input
                                 type="datetime-local"
+                                lang="en-US"
                                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                                 value={to}
                                 onChange={(e) => setTo(e.target.value)}
@@ -290,7 +295,7 @@ export default function History() {
                                             rows={rows}
                                             empty="No points"
                                             columns={[
-                                                { header: 'Unix Stamp (second)', cell: (r) => fmtDateTime(String(r.ts)) },
+                                                { header: 'Time (ISO)', cell: (r) => unixSecondsToIso(r.ts), className: 'whitespace-nowrap' },
                                                 { header: 'Temperature (°C)', cell: (r) => (r.temp ?? ''), className: 'whitespace-nowrap' },
                                                 { header: 'Humidity (%)', cell: (r) => (r.hum ?? ''), className: 'whitespace-nowrap' },
                                                 { header: 'Gas (ppm)', cell: (r) => (r.gas ?? ''), className: 'whitespace-nowrap' },

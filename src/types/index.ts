@@ -29,26 +29,51 @@ export interface Processed {
 };
 
 export interface AlertItem {
+  // NOTE: stored as BIGINT UNSIGNED in MySQL; keep as string in JS to avoid precision issues.
   id: string;
   device_id: string;
-  ts: number;
-  type: 'temp' | 'hum' | 'gas' | 'dust' | 'iaq' | 'system';
-  value?: number;
-  level: 'INFO' | 'WARN' | 'DANGER';
-  message: string;
+  ts: number; // unix seconds
+  iaq: number | null; // 0..100 (100 is best)
+  level: 'SAFE' | 'WARN' | 'DANGER';
 }
 
-export interface ThresholdSettings {
+export interface IaqSettings {
   device_id: string;
-  gas_warn: number;
-  gas_danger: number;
-  dust_warn: number;
-  dust_danger: number;
-  temp_low: number;
-  temp_high: number;
-  hum_low: number;
-  hum_high: number;
+
+  // ===== IAQ formula (0..100, 100 is best) =====
+  // MIN = strict (worst-metric wins). WEIGHTED_HARMONIC = still penalizes the worst metric,
+  // but smoother/more realistic for outdoor city environments.
+  iaq_method: 'MIN' | 'WEIGHTED_HARMONIC';
+
+  // Weights (any non-negative numbers; the backend will handle normalization safely)
+  w_temp: number;
+  w_hum: number;
+  w_dust: number;
+  w_gas: number;
+
+  // Trapezoid scoring for temp/humidity: a < b <= c < d
+  // score = 0..100 (best in [b..c])
+  temp_a: number;
+  temp_b: number;
+  temp_c: number;
+  temp_d: number;
+  hum_a: number;
+  hum_b: number;
+  hum_c: number;
+  hum_d: number;
+
+  // One-sided decreasing scoring for dust/gas: good < bad
+  dust_good: number; // mg/m3
+  dust_bad: number;  // mg/m3
+  gas_good: number;  // ppm (relative, depends on sensor calibration)
+  gas_bad: number;   // ppm
+
+  // IAQ -> level thresholds
+  iaq_safe: number; // >= iaq_safe => SAFE
+  iaq_warn: number; // >= iaq_warn => WARN, else DANGER
 }
+
+export type ThresholdSettings = IaqSettings;
 
 export interface HistoryQuery {
   device_id: string;

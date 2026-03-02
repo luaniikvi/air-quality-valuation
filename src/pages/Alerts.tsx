@@ -8,9 +8,9 @@ import DataTable from '../components/tables/DataTable';
 import { useDeviceContext } from '../components/layout/DeviceProvider';
 import { getAlerts } from '../api/sensorApi';
 import type { AlertItem } from '../types';
-import { fmtDateTime, isoMinusMs, isoNow } from '../utils/format';
+import { isoMinusMs, isoNow } from '../utils/format';
 
-type Level = 'ALL' | 'INFO' | 'WARN' | 'DANGER';
+type Level = 'ALL' | 'SAFE' | 'WARN' | 'DANGER';
 
 function toLocalInputValue(iso: string) {
     const d = new Date(iso);
@@ -83,6 +83,7 @@ export default function Alerts() {
                             <div className="text-xs font-semibold text-slate-600">From</div>
                             <input
                                 type="datetime-local"
+                                lang="en-US"
                                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                                 value={from}
                                 onChange={(e) => setFrom(e.target.value)}
@@ -92,6 +93,7 @@ export default function Alerts() {
                             <div className="text-xs font-semibold text-slate-600">To</div>
                             <input
                                 type="datetime-local"
+                                lang="en-US"
                                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                                 value={to}
                                 onChange={(e) => setTo(e.target.value)}
@@ -104,6 +106,7 @@ export default function Alerts() {
                                 value={level}
                                 onChange={(e) => setLevel(e.target.value as Level)}
                             >
+                                <option value="ALL">ALL</option>
                                 <option value="WARN">WARN</option>
                                 <option value="DANGER">DANGER</option>
                             </select>
@@ -130,9 +133,8 @@ export default function Alerts() {
                             rows={filtered}
                             empty="No alerts"
                             columns={[
-                                { header: 'Time', cell: (a) => fmtDateTime(String(a.ts)) },
-                                { header: 'Type', cell: (a) => a.type, className: 'whitespace-nowrap' },
-                                { header: 'Value', cell: (a) => (a.value ?? ''), className: 'whitespace-nowrap' },
+                                { header: 'Time (ISO)', cell: (a) => new Date(a.ts * 1000).toISOString(), className: 'whitespace-nowrap' },
+                                { header: 'IAQ', cell: (a) => (a.iaq ?? ''), className: 'whitespace-nowrap' },
                                 {
                                     header: 'Level',
                                     cell: (a) => (
@@ -141,7 +143,7 @@ export default function Alerts() {
                                                 ? 'border-rose-200 bg-rose-50 text-rose-800'
                                                 : a.level === 'WARN'
                                                     ? 'border-amber-200 bg-amber-50 text-amber-900'
-                                                    : 'border-slate-200 bg-slate-50 text-slate-700'
+                                                    : 'border-emerald-200 bg-emerald-50 text-emerald-800'
                                                 }`}
                                         >
                                             {a.level}
@@ -149,7 +151,6 @@ export default function Alerts() {
                                     ),
                                     className: 'whitespace-nowrap'
                                 },
-                                { header: 'Message', cell: (a) => a.message }
                             ]}
                         />
                     </div>

@@ -1,23 +1,35 @@
-import type { AlertItem, Device, HistoryQuery, HistoryResponse, ThresholdSettings } from '../types';
+import type { AlertItem, Device, HistoryQuery, HistoryResponse, IaqSettings, Processed } from '../types';
+// Pure functions (no Node-only APIs) -> safe to reuse for mock generation
 import { iaqCalculate, iaqToLevel } from '../../backend/src/telemetryProcessor';
-import type { Processed } from '../types';
 
 // Start EMPTY: user must add devices manually.
 const devices: Device[] = [];
 
-const settingsMap: Record<string, ThresholdSettings> = {};
+const settingsMap: Record<string, IaqSettings> = {};
 
-function defaultSettings(device_id: string): ThresholdSettings {
+function defaultSettings(device_id: string): IaqSettings {
   return {
     device_id,
-    gas_warn: 800,
-    gas_danger: 1200,
-    dust_warn: 0.08,
-    dust_danger: 0.15,
-    temp_low: 18,
-    temp_high: 32,
-    hum_low: 35,
-    hum_high: 75
+
+    iaq_method: 'WEIGHTED_HARMONIC',
+    w_temp: 0.10,
+    w_hum: 0.10,
+    w_dust: 0.45,
+    w_gas: 0.35,
+    temp_a: 22,
+    temp_b: 26,
+    temp_c: 32,
+    temp_d: 38,
+    hum_a: 40,
+    hum_b: 55,
+    hum_c: 80,
+    hum_d: 95,
+    dust_good: 0.05,
+    dust_bad: 0.20,
+    gas_good: 300,
+    gas_bad: 1500,
+    iaq_safe: 80,
+    iaq_warn: 60,
   };
 }
 
@@ -45,6 +57,7 @@ function parseIntervalToSec(interval?: string): number {
 }
 
 function makeReading(device_id: string, ts = Math.trunc(Date.now() / 1000)): Processed {
+  const s = settingsMap[device_id] ?? (settingsMap[device_id] = defaultSettings(device_id));
   const prev = lastByDevice[device_id];
   const randomData: number[] = [
     25 + rand(3),
@@ -61,8 +74,8 @@ function makeReading(device_id: string, ts = Math.trunc(Date.now() / 1000)): Pro
       hum: randomData[1],
       gas: randomData[2],
       dust: randomData[3],
-      IAQ: iaqCalculate(randomData[0], randomData[1], randomData[3], randomData[2]),
-      level: iaqToLevel(iaqCalculate(randomData[0], randomData[1], randomData[3], randomData[2]))
+      IAQ: iaqCalculate(randomData[0], randomData[1], randomData[3], randomData[2], s),
+      level: iaqToLevel(iaqCalculate(randomData[0], randomData[1], randomData[3], randomData[2], s), s)
     };
 
   const temp = step(base.temp ?? 25, 0.2, 10, 45);
@@ -78,12 +91,12 @@ function makeReading(device_id: string, ts = Math.trunc(Date.now() / 1000)): Pro
     hum: Math.round(hum * 10) / 10,
     gas: Math.round(gas),
     dust: Math.round(dust * 1000) / 1000,
-    IAQ: iaqCalculate(temp, hum, dust, gas),
-    level: iaqToLevel(iaqCalculate(temp, hum, dust, gas))
+    IAQ: iaqCalculate(temp, hum, dust, gas, s),
+    level: iaqToLevel(iaqCalculate(temp, hum, dust, gas, s), s)
   };
-  const iaq = iaqCalculate(reading.temp, reading.hum, reading.dust, reading.gas);
+  const iaq = iaqCalculate(reading.temp, reading.hum, reading.dust, reading.gas, s);
   reading.IAQ = iaq;
-  reading.level = iaqToLevel(reading.IAQ);
+  reading.level = iaqToLevel(reading.IAQ, s);
 
   lastByDevice[device_id] = reading;
   return reading;
@@ -168,35 +181,37 @@ export async function getHistory(q: HistoryQuery): Promise<HistoryResponse> {
 export async function getAlerts(device_id: string, from: string, to: string): Promise<AlertItem[]> {
   const fromSec = Math.trunc(new Date(from).getTime() / 1000);
   const toSec = Math.trunc(new Date(to).getTime() / 1000);
-  const count = 8;
+  const count = 12;
   const items: AlertItem[] = [];
 
   for (let i = 0; i < count; i++) {
-    const t = fromSec + Math.random() * (toSec - fromSec);
-    const r = makeReading(device_id);
-    const level = r.level === 'DANGER' ? 'DANGER' : r.level === 'WARN' ? 'WARN' : 'INFO';
+    const ts = Math.trunc(fromSec + Math.random() * Math.max(1, toSec - fromSec));
+
+    // Generate a plausible IAQ + level distribution
+    const roll = Math.random();
+    const level: AlertItem['level'] = roll < 0.2 ? 'DANGER' : roll < 0.6 ? 'WARN' : 'SAFE';
+    const iaq = level === 'DANGER' ? 35 + Math.random() * 20 : level === 'WARN' ? 60 + Math.random() * 15 : 85 + Math.random() * 10;
+
     items.push({
-      id: `${device_id}-${t}-${i}`,
+      id: `${device_id}-${ts}-${i}`,
       device_id,
-      ts: Math.trunc(t),
-      type: r.level === 'SAFE' ? 'system' : 'iaq',
-      value: r.IAQ,
+      ts,
+      iaq: Math.trunc(iaq),
       level,
-      message: r.level === 'SAFE' ? 'Heartbeat ok' : `iaq ${r.IAQ} (${r.level})`
     });
   }
 
   return items.sort((a, b) => (a.ts < b.ts ? 1 : -1));
 }
 
-export async function getSettings(device_id: string): Promise<ThresholdSettings> {
+export async function getSettings(device_id: string): Promise<IaqSettings> {
   const id = String(device_id || '').trim();
   if (!id) throw new Error('device_id is required');
   if (!settingsMap[id]) settingsMap[id] = defaultSettings(id);
   return settingsMap[id];
 }
 
-export async function saveSettings(payload: ThresholdSettings): Promise<{ ok: true }> {
+export async function saveSettings(payload: IaqSettings): Promise<{ ok: true }> {
   settingsMap[payload.device_id] = payload;
   return { ok: true };
 }

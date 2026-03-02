@@ -1,4 +1,4 @@
-import type { AlertItem, Device, HistoryQuery, HistoryResponse, Processed, ThresholdSettings } from '../types';
+import type { AlertItem, Device, HistoryQuery, HistoryResponse, Processed, IaqSettings } from '../types';
 import { http, isMockEnabled } from './http';
 import * as mock from '../mock/mockApi';
 
@@ -50,13 +50,13 @@ export async function getAlerts(device_id: string, from: string, to: string): Pr
   return res.data;
 }
 
-export async function getSettings(device_id: string): Promise<ThresholdSettings> {
+export async function getSettings(device_id: string): Promise<IaqSettings> {
   if (isMockEnabled()) return mock.getSettings(device_id);
-  const res = await http.get<ThresholdSettings>('/settings', { params: { device_id } });
+  const res = await http.get<IaqSettings>('/settings', { params: { device_id } });
   return res.data;
 }
 
-export async function saveSettings(payload: ThresholdSettings): Promise<{ ok: true }> {
+export async function saveSettings(payload: IaqSettings): Promise<{ ok: true }> {
   if (isMockEnabled()) return mock.saveSettings(payload);
   const res = await http.post<{ ok: true }>('/settings', payload);
   return res.data;

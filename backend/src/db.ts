@@ -31,6 +31,8 @@ export function getDbPool(): mysql.Pool {
 
   pool = mysql.createPool({
     ...cfg,
+    supportBigNumbers: true,
+    bigNumberStrings: true,
     connectionLimit: Number(process.env.MYSQL_POOL_SIZE ?? 10),
     // Keep it simple for an IoT project. You can add ssl here if your DB provider requires it.
     enableKeepAlive: true,

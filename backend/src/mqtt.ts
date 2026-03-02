@@ -1,5 +1,5 @@
-import mqtt from 'mqtt';
-import { type Telemetry } from '../../src/types/index.js';
+import mqtt, { MqttClient, type IClientOptions } from 'mqtt';
+import { type Telemetry } from './types.js';
 import * as store from './store.js';
 import { processor } from './telemetryProcessor.js';
 import { broadcastToDevice } from './websocket.js';
@@ -31,18 +31,32 @@ function normalizeTelemetry(raw: any): Telemetry | null {
         dust: n(raw.dust),
     };
 }
+let gClient: MqttClient | null = null;
 
 export function startMqttClient(mqttUrl: string, topicSub: string): void {
-    const mqttClient = mqtt.connect(mqttUrl, {
-        clientId: 'aqm-backend-' + Math.random().toString(16).slice(2),
+    // tránh tạo nhiều client nếu hàm bị gọi lại
+    if (gClient && !gClient.disconnected) return;
+
+    const opts: IClientOptions = {
+        clientId: 'aqm-' + Math.random().toString(16).slice(2, 10),
         clean: true,
-        reconnectPeriod: 1000,
-    });
+        protocolVersion: 4,       // MQTT 3.1.1
+        keepalive: 30,
+        connectTimeout: 10_000,
+        reconnectPeriod: 2000,
+        resubscribe: true,
+        // nếu broker cần auth thì mở 2 dòng dưới:
+        // username: process.env.MQTT_USER,
+        // password: process.env.MQTT_PASS,
+    };
+
+    const mqttClient = mqtt.connect(mqttUrl, opts);
+    gClient = mqttClient;
 
     mqttClient.on('connect', () => {
         console.log(`[MQTT] Connected -> ${mqttUrl}`);
         mqttClient.subscribe(topicSub, { qos: 0 }, (err) => {
-            if (err) console.error('[MQTT] Subscribe error:', err.message);
+            if (err) console.error('[MQTT] Subscribe error:', err);
             else console.log(`[MQTT] Subscribed: ${topicSub}`);
         });
     });
@@ -52,30 +66,39 @@ export function startMqttClient(mqttUrl: string, topicSub: string): void {
         void (async () => {
             try {
                 const telemetry = normalizeTelemetry(JSON.parse(text)) as Telemetry;
-                console.log('Telemetry:', JSON.stringify(telemetry));
                 if (!telemetry) return;
 
                 const registered = dbEnabled()
                     ? await repo.deviceExists(telemetry.deviceId)
                     : !!store.getDevice(telemetry.deviceId);
 
-                if (!registered) {
-                    return;
+                if (!registered) return;
+
+                let settings = store.peekSettings(telemetry.deviceId);
+                if (!settings && dbEnabled()) {
+                    try {
+                        const dbS = await repo.getSettings(telemetry.deviceId);
+                        if (dbS) {
+                            store.setSettings(telemetry.deviceId, dbS);
+                            settings = dbS;
+                        }
+                    } catch { }
                 }
+                if (!settings) settings = store.getSettings(telemetry.deviceId);
 
-                store.touchDevice(telemetry.deviceId, telemetry.ts);
+                const seenTs = store.nowTs();
+                store.touchDevice(telemetry.deviceId, seenTs);
 
-                const processed = processor.ingest(telemetry);
+                const processed = processor.ingest(telemetry, settings);
                 store.storeProcessed(processed);
                 const alert = store.pushAlertIfNeeded(processed);
 
                 if (dbEnabled()) {
-                    await repo.touchDeviceLastSeen(telemetry.deviceId, telemetry.ts);
+                    await repo.touchDeviceLastSeen(telemetry.deviceId, seenTs);
                     await repo.insertTelemetry(processed);
                     if (alert) await repo.insertAlert(alert);
                 }
 
-                // realtime
                 broadcastToDevice(telemetry.deviceId, JSON.stringify(processed));
             } catch {
                 // ignore malformed payloads
@@ -83,6 +106,15 @@ export function startMqttClient(mqttUrl: string, topicSub: string): void {
         })();
     });
 
-    mqttClient.on('error', (e) => console.error('[MQTT] Error:', e.message));
+    // log lỗi đầy đủ để biết chính xác bị gì trên host
+    mqttClient.on('error', (e: any) => {
+        console.error('[MQTT] Error:', {
+            message: e?.message,
+            code: e?.code,
+            name: e?.name,
+        });
+    });
+    mqttClient.on('close', () => console.warn('[MQTT] Close'));
+    mqttClient.on('offline', () => console.warn('[MQTT] Offline'));
     mqttClient.on('reconnect', () => console.log('[MQTT] Reconnecting...'));
 }

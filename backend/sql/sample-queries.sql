@@ -32,7 +32,7 @@ WHERE t.device_id = @dev
 ORDER BY t.ts ASC;
 
 -- 4) Alerts in a range
-SELECT id, device_id, ts, type, value, level, message
+SELECT id, device_id, ts, iaq, level
 FROM alerts
 WHERE device_id = 'esp32-001'
   AND ts BETWEEN 1700000000 AND 1700003600

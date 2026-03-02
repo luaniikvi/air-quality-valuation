@@ -13,22 +13,22 @@ export default function About() {
           <div className="mt-4 text-sm font-semibold">Environment</div>
           <ul className="mt-2 list-disc pl-5 text-sm">
             <li>
-              <code>VITE_API_BASE</code>: base URL cho API (mặc định <code>http://localhost:3000/api</code>)
+              <code>VITE_API_BASE</code>: base URL cho API (mặc định <code>/api</code> – dùng chung domain khi deploy)
             </li>
             <li>
               <code>VITE_USE_MOCK=true</code>: bật dữ liệu giả để demo UI không cần backend
             </li>
           </ul>
 
-          <div className="mt-4 text-sm font-semibold">Endpoints tối thiểu</div>
+          <div className="mt-4 text-sm font-semibold">Endpoints</div>
           <ul className="mt-2 list-disc pl-5 text-sm">
-            <li>GET /devices</li>
-            <li>POST /devices</li>
-            <li>GET /latest?device_id=...</li>
-            <li>GET /history?device_id=...&amp;from=...&amp;to=...&amp;interval=...</li>
-            <li>GET /alerts?device_id=...&amp;from=...&amp;to=...</li>
-            <li>GET /settings?device_id=...</li>
-            <li>POST /settings</li>
+            <li>GET /api/devices</li>
+            <li>POST /api/devices</li>
+            <li>GET /api/latest?device_id=...</li>
+            <li>GET /api/history?device_id=...&amp;from=...&amp;to=...&amp;interval=...</li>
+            <li>GET /api/alerts?device_id=...&amp;from=...&amp;to=...</li>
+            <li>GET /api/settings?device_id=...</li>
+            <li>POST /api/settings</li>
           </ul>
         </div>
       </div>

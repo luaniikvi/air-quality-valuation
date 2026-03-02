@@ -1,7 +1,7 @@
 import express from 'express';
 import * as store from './store.js';
 import { nowTs } from './store.js';
-import type { Processed, ThresholdSettings } from '../../src/types/index.js';
+import type { Processed, IaqSettings } from './types.js';
 import { dbPing, dbEnabled } from './db.js';
 import * as repo from './repo.js';
 
@@ -147,13 +147,17 @@ router.get('/settings', async (req, res) => {
 
     if (dbEnabled()) {
         const s = await repo.getSettings(device_id);
-        if (s) return res.json(s);
+        if (s) {
+            // cache for realtime IAQ processing
+            store.setSettings(device_id, s);
+            return res.json(s);
+        }
     }
     return res.json(store.getSettings(device_id));
 });
 
 router.post('/settings', async (req, res) => {
-    const body = (req.body ?? {}) as Partial<ThresholdSettings>;
+    const body = (req.body ?? {}) as Partial<IaqSettings>;
     const device_id = String(body.device_id ?? '').trim();
     if (!device_id) return res.status(400).json({ message: 'device_id is required' });
 

@@ -1,4 +1,4 @@
-import type { AlertItem, Device, Processed, ThresholdSettings } from '../../src/types/index.js';
+import type { AlertItem, Device, Processed, IaqSettings } from './types.js';
 import { dbEnabled, getDbPool } from './db.js';
 
 // NOTE:
@@ -44,7 +44,8 @@ export async function listDevices(): Promise<Device[]> {
   const [rows] = await p.query<any[]>(
     `SELECT device_id, name, last_seen_ts AS last_seen
      FROM devices
-     ORDER BY last_seen_ts DESC`);
+     ORDER BY last_seen_ts DESC`
+  );
   return rows as Device[];
 }
 
@@ -138,10 +139,9 @@ export async function insertAlert(a: AlertItem): Promise<void> {
   if (!dbEnabled()) return;
   const p = getDbPool();
   await p.query(
-    `INSERT INTO alerts (id, device_id, ts, type, value, level, message)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE ts = VALUES(ts)`,
-    [a.id, a.device_id, a.ts, a.type, a.value ?? null, a.level, a.message]
+    `INSERT INTO alerts (device_id, ts, iaq, level)
+     VALUES (?, ?, ?, ?)`,
+    [a.device_id, a.ts, a.iaq, a.level]
   );
 }
 
@@ -151,56 +151,109 @@ export async function getAlerts(device_id: string, fromSec?: number, toSec?: num
   const from = typeof fromSec === 'number' ? fromSec : 0;
   const to = typeof toSec === 'number' ? toSec : 2147483647; // year 2038-ish
   const [rows] = await p.query<any[]>(
-    `SELECT id, device_id, ts, type, value, level, message
+    `SELECT id, device_id, ts, iaq, level
      FROM alerts
      WHERE device_id = ? AND ts BETWEEN ? AND ?
      ORDER BY ts DESC
      LIMIT 2000`,
     [device_id, from, to]
   );
-  return rows as AlertItem[];
+
+  // Ensure JS-safe types
+  return (rows ?? []).map((r) => ({
+    id: String(r.id),
+    device_id: String(r.device_id),
+    ts: Number(r.ts),
+    iaq: r.iaq === null || r.iaq === undefined ? null : Number(r.iaq),
+    level: r.level as AlertItem['level'],
+  }));
 }
 
-export async function getSettings(device_id: string): Promise<ThresholdSettings | null> {
+export async function getSettings(device_id: string): Promise<IaqSettings | null> {
   if (!dbEnabled()) return null;
   const p = getDbPool();
-  const [rows] = await p.query<any[]>(
-    `SELECT device_id, gas_warn, gas_danger, dust_warn, dust_danger, temp_low, temp_high, hum_low, hum_high
-     FROM settings
-     WHERE device_id = ?
-     LIMIT 1`,
-    [device_id]
-  );
-  return rows[0] ? (rows[0] as ThresholdSettings) : null;
+  try {
+    const [rows] = await p.query<any[]>(
+      `SELECT device_id,
+              iaq_method, w_temp, w_hum, w_dust, w_gas,
+              temp_a, temp_b, temp_c, temp_d,
+              hum_a, hum_b, hum_c, hum_d,
+              dust_good, dust_bad, gas_good, gas_bad,
+              iaq_safe, iaq_warn
+       FROM settings
+       WHERE device_id = ?
+       LIMIT 1`,
+      [device_id]
+    );
+    return rows[0] ? (rows[0] as IaqSettings) : null;
+  } catch (e: any) {
+    // If DB schema is outdated (missing columns), don't crash the whole server.
+    console.warn('[DB] getSettings failed. Did you run migrations in backend/sql? ->', e?.message ?? e);
+    return null;
+  }
 }
 
-export async function upsertSettings(s: ThresholdSettings): Promise<void> {
+export async function upsertSettings(s: IaqSettings): Promise<void> {
   if (!dbEnabled()) return;
   const p = getDbPool();
-  await p.query(
-    `INSERT INTO settings (device_id, gas_warn, gas_danger, dust_warn, dust_danger, temp_low, temp_high, hum_low, hum_high, updated_ts)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-      gas_warn = VALUES(gas_warn),
-      gas_danger = VALUES(gas_danger),
-      dust_warn = VALUES(dust_warn),
-      dust_danger = VALUES(dust_danger),
-      temp_low = VALUES(temp_low),
-      temp_high = VALUES(temp_high),
-      hum_low = VALUES(hum_low),
-      hum_high = VALUES(hum_high),
-      updated_ts = VALUES(updated_ts)`,
-    [
-      s.device_id,
-      s.gas_warn,
-      s.gas_danger,
-      s.dust_warn,
-      s.dust_danger,
-      s.temp_low,
-      s.temp_high,
-      s.hum_low,
-      s.hum_high,
-      Math.trunc(Date.now() / 1000),
-    ]
-  );
+  try {
+    await p.query(
+      `INSERT INTO settings (
+          device_id,
+          iaq_method, w_temp, w_hum, w_dust, w_gas,
+          temp_a, temp_b, temp_c, temp_d,
+          hum_a, hum_b, hum_c, hum_d,
+          dust_good, dust_bad, gas_good, gas_bad,
+          iaq_safe, iaq_warn,
+          updated_ts
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+        iaq_method = VALUES(iaq_method),
+        w_temp = VALUES(w_temp),
+        w_hum = VALUES(w_hum),
+        w_dust = VALUES(w_dust),
+        w_gas = VALUES(w_gas),
+        temp_a = VALUES(temp_a),
+        temp_b = VALUES(temp_b),
+        temp_c = VALUES(temp_c),
+        temp_d = VALUES(temp_d),
+        hum_a = VALUES(hum_a),
+        hum_b = VALUES(hum_b),
+        hum_c = VALUES(hum_c),
+        hum_d = VALUES(hum_d),
+        dust_good = VALUES(dust_good),
+        dust_bad = VALUES(dust_bad),
+        gas_good = VALUES(gas_good),
+        gas_bad = VALUES(gas_bad),
+        iaq_safe = VALUES(iaq_safe),
+        iaq_warn = VALUES(iaq_warn),
+        updated_ts = VALUES(updated_ts)`,
+      [
+        s.device_id,
+        s.iaq_method,
+        s.w_temp,
+        s.w_hum,
+        s.w_dust,
+        s.w_gas,
+        s.temp_a,
+        s.temp_b,
+        s.temp_c,
+        s.temp_d,
+        s.hum_a,
+        s.hum_b,
+        s.hum_c,
+        s.hum_d,
+        s.dust_good,
+        s.dust_bad,
+        s.gas_good,
+        s.gas_bad,
+        s.iaq_safe,
+        s.iaq_warn,
+        Math.trunc(Date.now() / 1000),
+      ]
+    );
+  } catch (e: any) {
+    console.warn('[DB] upsertSettings failed. Did you run migrations in backend/sql? ->', e?.message ?? e);
+  }
 }

@@ -53,8 +53,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
-    // refresh devices every minute
-    const t = window.setInterval(() => refresh(), 60_000);
+    // Refresh device list frequently so ONLINE/OFFLINE feels real-time.
+    // (Backend status is derived from last_seen.)
+    const t = window.setInterval(() => refresh(), 10_000);
     return () => window.clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
