@@ -33,15 +33,12 @@ function sanitizeTrapezoid(a, b, c, d) {
     const dd = Number(d);
     if ([aa, bb, cc, dd].some((v) => !Number.isFinite(v)))
         return { a: 0, b: 1, c: 1, d: 2 };
-    // If invalid ordering, sort them to avoid throwing.
     if (!(aa < bb && bb <= cc && cc < dd)) {
         const s = [aa, bb, cc, dd].sort((x, y) => x - y);
-        // Array always has 4 items; '!' avoids noUncheckedIndexedAccess noise.
         let A = s[0];
         let B = s[1];
         let C = s[2];
         let D = s[3];
-        // ensure strict endpoints
         if (A === B)
             B = A + 1e-6;
         if (C === D)

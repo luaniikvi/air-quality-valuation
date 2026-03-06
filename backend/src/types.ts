@@ -32,7 +32,6 @@ export interface Processed {
 }
 
 export interface AlertItem {
-  // Stored as BIGINT UNSIGNED in MySQL; keep as string in JS to avoid precision issues.
   id: string;
   device_id: string;
   ts: number; // unix seconds

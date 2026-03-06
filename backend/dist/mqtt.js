@@ -1,10 +1,20 @@
 import mqtt, { MqttClient } from 'mqtt';
 import {} from './types.js';
 import * as store from './store.js';
-import { processor } from './telemetryProcessor.js';
+import { processor, iaqToLevel } from './telemetryProcessor.js';
 import { broadcastToDevice } from './websocket.js';
 import * as repo from './repo.js';
 import { dbEnabled } from './db.js';
+function publishToEsp32(deviceId, payloadObj) {
+    if (!gClient || gClient.disconnected)
+        return;
+    const topicDown = `hluan/aqm/${deviceId}/down`;
+    const payload = JSON.stringify(payloadObj);
+    gClient.publish(topicDown, payload, { qos: 0, retain: false }, (err) => {
+        if (err)
+            console.error('[MQTT] Publish to ESP32 error:', err);
+    });
+}
 function normalizeTelemetry(raw) {
     if (!raw)
         return null;
@@ -14,7 +24,6 @@ function normalizeTelemetry(raw) {
     let ts = Number(raw.ts);
     if (!Number.isFinite(ts))
         return null;
-    // If firmware accidentally sends milliseconds, normalize to seconds.
     if (ts > 20_000_000_000)
         ts = Math.trunc(ts / 1000);
     const n = (v) => {
@@ -34,7 +43,6 @@ function normalizeTelemetry(raw) {
 }
 let gClient = null;
 export function startMqttClient(mqttUrl, topicSub) {
-    // tránh tạo nhiều client nếu hàm bị gọi lại
     if (gClient && !gClient.disconnected)
         return;
     const opts = {
@@ -45,9 +53,6 @@ export function startMqttClient(mqttUrl, topicSub) {
         connectTimeout: 10_000,
         reconnectPeriod: 2000,
         resubscribe: true,
-        // nếu broker cần auth thì mở 2 dòng dưới:
-        // username: process.env.MQTT_USER,
-        // password: process.env.MQTT_PASS,
     };
     const mqttClient = mqtt.connect(mqttUrl, opts);
     gClient = mqttClient;
@@ -66,12 +71,9 @@ export function startMqttClient(mqttUrl, topicSub) {
             try {
                 const telemetry = normalizeTelemetry(JSON.parse(text));
                 if (!telemetry)
-                    return;
-                const registered = dbEnabled()
-                    ? await repo.deviceExists(telemetry.deviceId)
-                    : !!store.getDevice(telemetry.deviceId);
-                if (!registered)
-                    return;
+                    return; // wrong format
+                console.log(JSON.stringify(telemetry));
+                // get setting if existed
                 let settings = store.peekSettings(telemetry.deviceId);
                 if (!settings && dbEnabled()) {
                     try {
@@ -85,9 +87,21 @@ export function startMqttClient(mqttUrl, topicSub) {
                 }
                 if (!settings)
                     settings = store.getSettings(telemetry.deviceId);
+                const processed = processor.ingest(telemetry, settings);
+                // reply any esp32 even not registered
+                publishToEsp32(telemetry.deviceId, {
+                    ts: telemetry.ts ?? telemetry.ts,
+                    iaq: processed.IAQ,
+                    level: processed.level
+                });
+                // save into db if has been registered
+                const registered = dbEnabled()
+                    ? await repo.deviceExists(telemetry.deviceId)
+                    : !!store.getDevice(telemetry.deviceId);
+                if (!registered)
+                    return;
                 const seenTs = store.nowTs();
                 store.touchDevice(telemetry.deviceId, seenTs);
-                const processed = processor.ingest(telemetry, settings);
                 store.storeProcessed(processed);
                 const alert = store.pushAlertIfNeeded(processed);
                 if (dbEnabled()) {
@@ -98,12 +112,11 @@ export function startMqttClient(mqttUrl, topicSub) {
                 }
                 broadcastToDevice(telemetry.deviceId, JSON.stringify(processed));
             }
-            catch {
-                // ignore malformed payloads
+            catch (err) {
+                console.error('[MQTT] Message handling error:', { error: err instanceof Error ? err.message : String(err), payload: text, });
             }
         })();
     });
-    // log lỗi đầy đủ để biết chính xác bị gì trên host
     mqttClient.on('error', (e) => {
         console.error('[MQTT] Error:', {
             message: e?.message,
