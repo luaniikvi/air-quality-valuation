@@ -10,7 +10,7 @@ import { getAlerts } from '../api/sensorApi';
 import type { AlertItem } from '../types';
 import { isoMinusMs, isoNow } from '../utils/format';
 
-type Level = 'ALL' | 'SAFE' | 'WARN' | 'DANGER';
+type Level = 'ALL' | 'WARN' | 'DANGER';
 
 function toLocalInputValue(iso: string) {
     const d = new Date(iso);
@@ -27,6 +27,19 @@ function fromLocalInputValue(v: string) {
     // treat as local time
     const d = new Date(v);
     return d.toISOString();
+}
+function formatLocalDateTime(tsSec: number) {
+    const pad2 = (n: number) => { return String(n).padStart(2, '0') };
+    const d = new Date(tsSec * 1000);
+    const dd = pad2(d.getDate());
+    const mm = pad2(d.getMonth() + 1);
+    const yyyy = d.getFullYear();
+    const hh = pad2(d.getHours());
+    const mi = pad2(d.getMinutes());
+    const ss = pad2(d.getSeconds());
+
+    return `${mm}/${dd}/${yyyy} ${hh}:${mi}:${ss}`;
+    ;
 }
 
 export default function Alerts() {
@@ -62,7 +75,6 @@ export default function Alerts() {
             return;
         }
         run();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [deviceId]);
 
     const filtered = useMemo(() => {
@@ -133,7 +145,7 @@ export default function Alerts() {
                             rows={filtered}
                             empty="No alerts"
                             columns={[
-                                { header: 'Time (ISO)', cell: (a) => new Date(a.ts * 1000).toISOString(), className: 'whitespace-nowrap' },
+                                { header: 'Time (MM/dd/yyyy HH:mm:ss)', cell: (a) => formatLocalDateTime(a.ts), className: 'whitespace-nowrap' },
                                 { header: 'IAQ', cell: (a) => (a.iaq ?? ''), className: 'whitespace-nowrap' },
                                 {
                                     header: 'Level',

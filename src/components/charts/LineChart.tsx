@@ -1,7 +1,7 @@
 import './chartSetup';
 import { Line } from 'react-chartjs-2';
 
-export type Point = { label: string; value: number };
+export type Point = { label: string | string[]; value: number };
 
 export default function LineChart({
   title,
@@ -26,6 +26,7 @@ export default function LineChart({
   };
 
   const labels = points.map((p) => p.label);
+
   const data = {
     labels,
     datasets: [
@@ -43,22 +44,33 @@ export default function LineChart({
   };
 
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       {title ? <div className="text-sm font-semibold text-slate-700">{title}</div> : null}
-      <div className="mt-3">
+
+      <div className="mt-3" style={{ height }}>
         <Line
           data={data}
-          height={height}
           options={{
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
               legend: { display: false },
-              tooltip: { enabled: true }
+              tooltip: {
+                enabled: true
+              }
             },
             scales: {
-              x: { ticks: { maxTicksLimit: 10 } },
-              y: { title: yLabel ? { display: true, text: yLabel } : { display: false } }
+              x: {
+                ticks: {
+                  maxTicksLimit: 10,
+                  autoSkip: true
+                }
+              },
+              y: {
+                title: yLabel
+                  ? { display: true, text: yLabel }
+                  : { display: false }
+              }
             }
           }}
         />

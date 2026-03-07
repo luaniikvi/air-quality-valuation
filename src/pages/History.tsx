@@ -12,11 +12,11 @@ import type { Processed } from '../types';
 import { isoMinusMs, isoNow } from '../utils/format';
 
 const METRIC_COLORS: Record<string, string> = {
-    temp: '#f97316', // orange
-    hum: '#3b82f6', // blue
-    gas: '#a855f7', // purple
-    dust: '#eab308', // yellow
-    IAQ: '#44ef58' // iaq
+    temp: '#f97316',
+    hum: '#3b82f6',
+    gas: '#a855f7',
+    dust: '#eab308',
+    IAQ: '#44ef58'
 };
 
 function PencilIcon({ className }: { className?: string }) {
@@ -53,26 +53,46 @@ const METRICS = [
 
 type MetricKey = (typeof METRICS)[number]['key'];
 
+function pad2(n: number) {
+    return String(n).padStart(2, '0');
+}
+
 function toLocalInputValue(iso: string) {
     const d = new Date(iso);
-    const pad = (n: number) => String(n).padStart(2, '0');
     const yyyy = d.getFullYear();
-    const mm = pad(d.getMonth() + 1);
-    const dd = pad(d.getDate());
-    const hh = pad(d.getHours());
-    const mi = pad(d.getMinutes());
-    return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+    const mm = pad2(d.getMonth() + 1);
+    const dd = pad2(d.getDate());
+    const hh = pad2(d.getHours());
+    const mi = pad2(d.getMinutes());
+
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 }
 
 function fromLocalInputValue(v: string) {
-    // treat as local time
-    const d = new Date(v);
+    const [datePart, timePart] = v.split('T');
+    if (!datePart || !timePart) return new Date(v).toISOString();
+
+    const [yyyy, mm, dd] = datePart.split('-').map(Number);
+    const [hh, mi] = timePart.split(':').map(Number);
+
+    const d = new Date(yyyy, mm - 1, dd, hh, mi, 0);
     return d.toISOString();
 }
 
-function unixSecondsToIso(tsSec: number) {
+function formatLocalDateTime(tsSec: number) {
     const d = new Date(tsSec * 1000);
-    return d.toISOString().replace('.000Z', '').replace("T", ' ');
+    const dd = pad2(d.getDate());
+    const mm = pad2(d.getMonth() + 1);
+    const yyyy = d.getFullYear();
+    const hh = pad2(d.getHours());
+    const mi = pad2(d.getMinutes());
+    const ss = pad2(d.getSeconds());
+
+    return {
+        date: `${mm}/${dd}/${yyyy}`,
+        time: `${hh}:${mi}:${ss}`,
+        singleLine: `${mm}/${dd}/${yyyy} ${hh}:${mi}:${ss}`
+    };
 }
 
 function downloadCsv(filename: string, rows: string[][]) {
@@ -134,13 +154,21 @@ export default function History() {
     const chartData = useMemo(() => {
         const byMetric: Record<string, Point[]> = {};
         for (const m of metrics) byMetric[m] = [];
+
         for (const p of points) {
-            const label = unixSecondsToIso(p.ts);
+            const { date, time } = formatLocalDateTime(p.ts);
+
             for (const m of metrics) {
                 const v = (p as any)[m];
-                if (typeof v === 'number') byMetric[m].push({ label, value: v });
+                if (typeof v === 'number') {
+                    byMetric[m].push({
+                        label: [date, time],
+                        value: v
+                    });
+                }
             }
         }
+
         return byMetric;
     }, [points, metrics]);
 
@@ -207,7 +235,9 @@ export default function History() {
                                     return (
                                         <button
                                             key={m.key}
-                                            className={`rounded-full border px-3 py-1 text-sm ${active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'
+                                            className={`rounded-full border px-3 py-1 text-sm ${active
+                                                ? 'border-slate-900 bg-slate-900 text-white'
+                                                : 'border-slate-200 bg-white text-slate-700'
                                                 }`}
                                             onClick={() => {
                                                 setMetrics((prev) => {
@@ -295,7 +325,11 @@ export default function History() {
                                             rows={rows}
                                             empty="No points"
                                             columns={[
-                                                { header: 'Time (ISO)', cell: (r) => unixSecondsToIso(r.ts), className: 'whitespace-nowrap' },
+                                                {
+                                                    header: 'Time (Local)',
+                                                    cell: (r) => formatLocalDateTime(r.ts).singleLine,
+                                                    className: 'whitespace-nowrap'
+                                                },
                                                 { header: 'Temperature (°C)', cell: (r) => (r.temp ?? ''), className: 'whitespace-nowrap' },
                                                 { header: 'Humidity (%)', cell: (r) => (r.hum ?? ''), className: 'whitespace-nowrap' },
                                                 { header: 'Gas (ppm)', cell: (r) => (r.gas ?? ''), className: 'whitespace-nowrap' },
