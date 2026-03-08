@@ -33,7 +33,7 @@ sed -i 's/VITE_USE_MOCK=true/VITE_USE_MOCK=false/' .env
 npm run dev
 ```
 
-## 3) API contract tối thiểu
+## 3) API contract
 - `GET /api/devices` → `Device[]`
 - `GET /api/latest?device_id=...` → `Reading`
 - `GET /api/history?device_id=...&from=ISO&to=ISO&interval=1m` → `{ points: Reading[] }`
