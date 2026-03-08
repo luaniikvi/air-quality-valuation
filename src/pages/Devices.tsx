@@ -86,7 +86,7 @@ export default function Devices() {
   }
 
   return (
-    <PageContainer title="Devices (Thiết bị)">
+    <PageContainer title="Devices">
       {error ? <ErrorState message={error} /> : null}
 
       <div className="mt-4 flex items-center justify-between gap-3">
@@ -122,9 +122,8 @@ export default function Devices() {
             <div
               key={d.device_id}
               onClick={() => setDeviceId(d.device_id)}
-              className={`rounded-2xl border p-4 shadow-sm bg-white transition-colors cursor-pointer hover:bg-slate-50 ${
-                active ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
-              }`}
+              className={`rounded-2xl border p-4 shadow-sm bg-white transition-colors cursor-pointer hover:bg-slate-50 ${active ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
+                }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 text-left rounded-xl px-2 py-1">
@@ -132,11 +131,10 @@ export default function Devices() {
                     <div className="text-sm font-semibold text-slate-900">{d.name || d.device_id}</div>
                     {d.status ? (
                       <span
-                        className={`rounded-full border px-2 py-1 text-xs ${
-                          d.status === 'online'
+                        className={`rounded-full border px-2 py-1 text-xs ${d.status === 'online'
                             ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                             : 'border-slate-200 bg-slate-50 text-slate-700'
-                        }`}
+                          }`}
                       >
                         {d.status}
                       </span>

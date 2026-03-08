@@ -146,7 +146,7 @@ export default function Settings() {
     }
 
     return (
-        <PageContainer title="Settings (Cài đặt)">
+        <PageContainer title="Settings">
             {error ? <ErrorState message={error} /> : null}
 
             {noDevice ? (
@@ -167,7 +167,7 @@ export default function Settings() {
                                 <div>
                                     <div className="text-sm font-semibold text-slate-900">IAQ Settings</div>
                                     <div className="mt-1 text-xs text-slate-600">
-                                        Bạn có thể chỉnh công thức IAQ theo môi trường TP.HCM (ngoài trời) hoặc theo tiêu chuẩn “thoải mái trong nhà”.
+                                        Bạn có thể chỉnh công thức IAQ theo môi trường không khí TP.HCM hoặc theo tiêu chuẩn “thoải mái trong nhà”.
                                     </div>
                                 </div>
 
@@ -183,7 +183,7 @@ export default function Settings() {
                                                 setModel({ ...model, ...(presetValues(k) as any) });
                                             }}
                                         >
-                                            <option value="hcmc_outdoor">TP.HCM (Outdoor - khuyến nghị)</option>
+                                            <option value="hcmc_outdoor">TP.HCM (khuyến nghị)</option>
                                             <option value="indoor_comfort">Indoor comfort (trong nhà)</option>
                                             <option value="strict_min">Strict MIN</option>
                                         </select>
@@ -192,7 +192,7 @@ export default function Settings() {
                             </div>
 
                             <details className="mt-4 rounded-xl border border-slate-200 p-4" open>
-                                <summary className="cursor-pointer text-sm font-semibold text-slate-900">Công thức IAQ (tunable)</summary>
+                                <summary className="cursor-pointer text-sm font-semibold text-slate-900">Công thức IAQ</summary>
                                 <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div>
                                         <div className="text-xs font-semibold text-slate-600">IAQ method</div>
@@ -323,10 +323,6 @@ export default function Settings() {
                                     {saving ? 'Saving...' : 'Save (Lưu)'}
                                 </button>
                                 {ok ? <div className="text-sm text-emerald-700">{ok}</div> : null}
-                            </div>
-
-                            <div className="mt-4 text-xs text-slate-500">
-                                Backend lưu settings theo device_id và dùng trực tiếp để tính IAQ theo thời gian thực. Nếu dùng MySQL, hãy chạy file migration trong <code>backend/sql</code>.
                             </div>
                         </div>
                     ) : null}

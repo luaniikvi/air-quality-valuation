@@ -83,7 +83,7 @@ export default function Alerts() {
     }, [items, level]);
 
     return (
-        <PageContainer title="Alerts (Cảnh báo)">
+        <PageContainer title="Alerts">
             {error ? <ErrorState message={error} /> : null}
 
             {noDevice ? (
@@ -92,7 +92,7 @@ export default function Alerts() {
                 <>
                     <div className="mt-4 grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
                         <div>
-                            <div className="text-xs font-semibold text-slate-600">From</div>
+                            <div className="text-xs font-semibold text-slate-600">Từ</div>
                             <input
                                 type="datetime-local"
                                 lang="en-US"
@@ -102,7 +102,7 @@ export default function Alerts() {
                             />
                         </div>
                         <div>
-                            <div className="text-xs font-semibold text-slate-600">To</div>
+                            <div className="text-xs font-semibold text-slate-600">Đến</div>
                             <input
                                 type="datetime-local"
                                 lang="en-US"
@@ -112,7 +112,7 @@ export default function Alerts() {
                             />
                         </div>
                         <div>
-                            <div className="text-xs font-semibold text-slate-600">Level (Mức)</div>
+                            <div className="text-xs font-semibold text-slate-600">Level</div>
                             <select
                                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                                 value={level}
@@ -129,7 +129,7 @@ export default function Alerts() {
                                 onClick={run}
                                 disabled={loading}
                             >
-                                {loading ? 'Loading...' : 'Load (Tải)'}
+                                {loading ? 'Loading...' : 'Load'}
                             </button>
                         </div>
                     </div>

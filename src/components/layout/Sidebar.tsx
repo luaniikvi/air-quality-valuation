@@ -7,7 +7,7 @@ const items = [
   { to: '/alerts', label: 'Alerts' },
   { to: '/devices', label: 'Devices' },
   { to: '/settings', label: 'Settings' },
-  { to: '/about', label: 'About' }
+  // { to: '/about', label: 'About' }
 ];
 
 export default function Sidebar() {

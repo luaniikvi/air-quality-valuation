@@ -7,7 +7,7 @@ import History from './pages/History';
 import Alerts from './pages/Alerts';
 import Devices from './pages/Devices';
 import Settings from './pages/Settings';
-import About from './pages/About';
+// import About from './pages/About';
 
 export default function App() {
   return (
@@ -20,7 +20,7 @@ export default function App() {
           {<Route path="/alerts" element={<Alerts />} />}
           <Route path="/devices" element={<Devices />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/about" element={<About />} />
+          {/* <Route path="/about" element={<About />} /> */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell>

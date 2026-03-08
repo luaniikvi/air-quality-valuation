@@ -44,10 +44,10 @@ function PencilIcon({ className }: { className?: string }) {
 }
 
 const METRICS = [
-    { key: 'temp', label: 'Temperature (Nhiệt độ)', unit: '°C' },
-    { key: 'hum', label: 'Humidity (Độ ẩm)', unit: '%' },
-    { key: 'gas', label: 'Gas (Khí)', unit: 'ppm' },
-    { key: 'dust', label: 'Dust (Bụi)', unit: 'mg/m³' },
+    { key: 'temp', label: 'Nhiệt độ', unit: '°C' },
+    { key: 'hum', label: 'Độ ẩm', unit: '%' },
+    { key: 'gas', label: 'Gas', unit: 'ppm' },
+    { key: 'dust', label: 'Dust', unit: 'mg/m³' },
     { key: 'IAQ', label: 'IAQ', unit: '' }
 ] as const;
 
@@ -184,7 +184,7 @@ export default function History() {
                 <>
                     <div className="mt-4 grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
                         <div>
-                            <div className="text-xs font-semibold text-slate-600">From</div>
+                            <div className="text-xs font-semibold text-slate-600">Từ</div>
                             <input
                                 type="datetime-local"
                                 lang="en-US"
@@ -194,7 +194,7 @@ export default function History() {
                             />
                         </div>
                         <div>
-                            <div className="text-xs font-semibold text-slate-600">To</div>
+                            <div className="text-xs font-semibold text-slate-600">Đến</div>
                             <input
                                 type="datetime-local"
                                 lang="en-US"
@@ -204,7 +204,7 @@ export default function History() {
                             />
                         </div>
                         <div>
-                            <div className="text-xs font-semibold text-slate-600">Interval</div>
+                            <div className="text-xs font-semibold text-slate-600">Quảng thời gian</div>
                             <select
                                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                                 value={interval}
@@ -228,7 +228,7 @@ export default function History() {
                         </div>
 
                         <div className="md:col-span-4">
-                            <div className="text-xs font-semibold text-slate-600">Metrics (Chỉ số)</div>
+                            <div className="text-xs font-semibold text-slate-600">Chỉ số</div>
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {METRICS.map((m) => {
                                     const active = metrics.includes(m.key);
@@ -277,7 +277,7 @@ export default function History() {
 
                     <div className="mt-8 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <div className="text-sm font-semibold text-slate-700">Raw data (Dữ liệu thô)</div>
+                            <div className="text-sm font-semibold text-slate-700">Dữ liệu thô</div>
                             <button
                                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${showRaw
                                     ? 'border-slate-900 bg-slate-900 text-white'

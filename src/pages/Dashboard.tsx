@@ -142,7 +142,7 @@ export default function Dashboard() {
   const banner = bannerCopy(level);
 
   return (
-    <PageContainer title="Dashboard (Tổng quan)">
+    <PageContainer title="Dashboard">
       {noDevice ? (
         NoDeviceState()
       ) : (
@@ -190,10 +190,10 @@ export default function Dashboard() {
           />
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <MetricCard title="Temperature (Nhiệt độ)" value={latest?.temp} unit="°C" />
-            <MetricCard title="Humidity (Độ ẩm)" value={latest?.hum} unit="%" />
-            <MetricCard title="Gas (Khí)" value={latest?.gas} unit="ppm" />
-            <MetricCard title="Dust (Bụi)" value={latest?.dust} unit="mg/m³" />
+            <MetricCard title="Nhiệt độ" value={latest?.temp} unit="°C" />
+            <MetricCard title="Độ ẩm" value={latest?.hum} unit="%" />
+            <MetricCard title="Nồng độ khí Gas" value={latest?.gas} unit="ppm" />
+            <MetricCard title="Nồng độ Bụi" value={latest?.dust} unit="mg/m³" />
           </div>
         </>
       )}
