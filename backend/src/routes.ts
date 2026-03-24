@@ -1,11 +1,22 @@
 import express from 'express';
 import * as store from './store.js';
 import { nowTs } from './store.js';
-import type { Processed, IaqSettings } from './types.js';
+import type { Processed, DeviceSettings } from './types.js';
 import { dbPing, dbEnabled } from './db.js';
 import * as repo from './repo.js';
 
 const router = express.Router();
+
+function parseOptionalBool(value: unknown): boolean | undefined {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+        const v = value.trim().toLowerCase();
+        if (['1', 'true', 'on', 'yes'].includes(v)) return true;
+        if (['0', 'false', 'off', 'no'].includes(v)) return false;
+    }
+    return undefined;
+}
 
 // Health
 router.get('/health', async (_req, res) => {
@@ -148,7 +159,6 @@ router.get('/settings', async (req, res) => {
     if (dbEnabled()) {
         const s = await repo.getSettings(device_id);
         if (s) {
-            // cache for realtime IAQ processing
             store.setSettings(device_id, s);
             return res.json(s);
         }
@@ -157,11 +167,18 @@ router.get('/settings', async (req, res) => {
 });
 
 router.post('/settings', async (req, res) => {
-    const body = (req.body ?? {}) as Partial<IaqSettings>;
+    const body = (req.body ?? {}) as Partial<DeviceSettings>;
     const device_id = String(body.device_id ?? '').trim();
     if (!device_id) return res.status(400).json({ message: 'device_id is required' });
 
-    const updated = store.updateSettings(device_id, body);
+    const led_enabled = parseOptionalBool(body.led_enabled);
+    const buzzer_enabled = parseOptionalBool(body.buzzer_enabled);
+
+    const patch: Partial<DeviceSettings> = {};
+    if (led_enabled !== undefined) patch.led_enabled = led_enabled;
+    if (buzzer_enabled !== undefined) patch.buzzer_enabled = buzzer_enabled;
+
+    const updated = store.updateSettings(device_id, patch);
     if (dbEnabled()) await repo.upsertSettings(updated);
     return res.json({ ok: true, settings: updated });
 });

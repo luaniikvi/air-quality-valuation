@@ -1,4 +1,4 @@
-import type { AlertItem, Device, Processed, IaqSettings } from './types.js';
+import type { AlertItem, Device, Processed, DeviceSettings } from './types.js';
 import { dbEnabled, getDbPool } from './db.js';
 
 // NOTE:
@@ -169,23 +169,36 @@ export async function getAlerts(device_id: string, fromSec?: number, toSec?: num
   }));
 }
 
-export async function getSettings(device_id: string): Promise<IaqSettings | null> {
+function toBool(value: any): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const v = value.trim().toLowerCase();
+    return v === '1' || v === 'true' || v === 'on' || v === 'yes';
+  }
+  return false;
+}
+
+function rowToDeviceSettings(row: any): DeviceSettings {
+  return {
+    device_id: String(row.device_id),
+    led_enabled: toBool(row.led_enabled),
+    buzzer_enabled: toBool(row.buzzer_enabled),
+  };
+}
+
+export async function getSettings(device_id: string): Promise<DeviceSettings | null> {
   if (!dbEnabled()) return null;
   const p = getDbPool();
   try {
     const [rows] = await p.query<any[]>(
-      `SELECT device_id,
-              iaq_method, w_temp, w_hum, w_dust, w_gas,
-              temp_a, temp_b, temp_c, temp_d,
-              hum_a, hum_b, hum_c, hum_d,
-              dust_good, dust_bad, gas_good, gas_bad,
-              iaq_safe, iaq_warn
+      `SELECT device_id, led_enabled, buzzer_enabled
        FROM settings
        WHERE device_id = ?
        LIMIT 1`,
       [device_id]
     );
-    return rows[0] ? (rows[0] as IaqSettings) : null;
+    return rows[0] ? rowToDeviceSettings(rows[0]) : null;
   } catch (e: any) {
     // If DB schema is outdated (missing columns), don't crash the whole server.
     console.warn('[DB] getSettings failed. Did you run migrations in backend/sql? ->', e?.message ?? e);
@@ -193,63 +206,26 @@ export async function getSettings(device_id: string): Promise<IaqSettings | null
   }
 }
 
-export async function upsertSettings(s: IaqSettings): Promise<void> {
+export async function upsertSettings(s: DeviceSettings): Promise<void> {
   if (!dbEnabled()) return;
   const p = getDbPool();
   try {
     await p.query(
       `INSERT INTO settings (
           device_id,
-          iaq_method, w_temp, w_hum, w_dust, w_gas,
-          temp_a, temp_b, temp_c, temp_d,
-          hum_a, hum_b, hum_c, hum_d,
-          dust_good, dust_bad, gas_good, gas_bad,
-          iaq_safe, iaq_warn,
+          led_enabled,
+          buzzer_enabled,
           updated_ts
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
-        iaq_method = VALUES(iaq_method),
-        w_temp = VALUES(w_temp),
-        w_hum = VALUES(w_hum),
-        w_dust = VALUES(w_dust),
-        w_gas = VALUES(w_gas),
-        temp_a = VALUES(temp_a),
-        temp_b = VALUES(temp_b),
-        temp_c = VALUES(temp_c),
-        temp_d = VALUES(temp_d),
-        hum_a = VALUES(hum_a),
-        hum_b = VALUES(hum_b),
-        hum_c = VALUES(hum_c),
-        hum_d = VALUES(hum_d),
-        dust_good = VALUES(dust_good),
-        dust_bad = VALUES(dust_bad),
-        gas_good = VALUES(gas_good),
-        gas_bad = VALUES(gas_bad),
-        iaq_safe = VALUES(iaq_safe),
-        iaq_warn = VALUES(iaq_warn),
+        led_enabled = VALUES(led_enabled),
+        buzzer_enabled = VALUES(buzzer_enabled),
         updated_ts = VALUES(updated_ts)`,
       [
         s.device_id,
-        s.iaq_method,
-        s.w_temp,
-        s.w_hum,
-        s.w_dust,
-        s.w_gas,
-        s.temp_a,
-        s.temp_b,
-        s.temp_c,
-        s.temp_d,
-        s.hum_a,
-        s.hum_b,
-        s.hum_c,
-        s.hum_d,
-        s.dust_good,
-        s.dust_bad,
-        s.gas_good,
-        s.gas_bad,
-        s.iaq_safe,
-        s.iaq_warn,
+        s.led_enabled ? 1 : 0,
+        s.buzzer_enabled ? 1 : 0,
         Math.trunc(Date.now() / 1000),
       ]
     );

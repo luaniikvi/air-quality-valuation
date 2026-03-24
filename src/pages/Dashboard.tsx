@@ -1,4 +1,3 @@
-import type { IaqSettings } from '../types';
 import { useEffect, useMemo, useState } from 'react';
 import PageContainer from '../components/layout/PageContainer';
 import MetricCard from '../components/cards/MetricCard';
@@ -9,16 +8,15 @@ import { hasDeviceId } from '../utils/deviceGuard';
 import { useDeviceContext } from '../components/layout/DeviceProvider';
 import type { Processed } from '../types';
 import { bannerCopy, iaqCardColors } from '../utils/iaq';
-import { getLatest, getSettings } from '../api/sensorApi';
+import { getLatest } from '../api/sensorApi';
 
 export default function Dashboard() {
-  const [settings, setSettings] = useState<IaqSettings | null>(null);
   const { deviceId, devices } = useDeviceContext();
   const noDevice = !hasDeviceId(deviceId) || devices.length === 0;
 
   const [latest, setLatest] = useState<Processed | null>(null);
   const [wsState, setWsState] = useState<'off' | 'connecting' | 'connected' | 'error' | 'closed'>('off');
-  if (settings) { };
+
   useEffect(() => {
     if (!hasDeviceId(deviceId)) {
       setLatest(null);
@@ -49,18 +47,20 @@ export default function Dashboard() {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       return `${proto}//${window.location.host}/ws`;
     })();
+
     let ws: WebSocket | null = null;
     let cancelled = false;
 
     // 1) Fetch last known value (so the dashboard isn't empty while waiting for WS)
     (async () => {
       try {
-        const [last, s] = await Promise.all([getLatest(deviceId), getSettings(deviceId)]);
+        const last = await getLatest(deviceId);
         if (!cancelled) {
           setLatest(last);
-          setSettings(s);
         }
-      } catch { }
+      } catch {
+        // ignore bootstrap fetch error and let WS continue trying
+      }
     })();
 
     try {
@@ -78,8 +78,7 @@ export default function Dashboard() {
           const msg = JSON.parse(ev.data) as Partial<Processed>;
 
           const ts = msg.ts;
-          if (typeof ts !== "number") return;
-
+          if (typeof ts !== 'number') return;
           if (msg.deviceId !== deviceId) return;
 
           setLatest((prev) => {
@@ -125,7 +124,11 @@ export default function Dashboard() {
 
     return () => {
       cancelled = true;
-      try { ws?.close(); } catch { }
+      try {
+        ws?.close();
+      } catch {
+        // ignore close errors
+      }
     };
   }, [deviceId]);
 
@@ -134,8 +137,7 @@ export default function Dashboard() {
     if (!latest) return undefined;
   }, [latest]);
 
-  const level: 'SAFE' | 'WARN' | 'DANGER' | '...' = latest?.level ?? "...";
-
+  const level: 'SAFE' | 'WARN' | 'DANGER' | '...' = latest?.level ?? '...';
 
   const iaqColors = useMemo(() => (iaq == null ? null : iaqCardColors(iaq)), [iaq]);
   const iaqTitle = iaq != null ? `IAQ • ${latest?.level}` : 'IAQ';
@@ -174,7 +176,7 @@ export default function Dashboard() {
 
           <MetricCard
             title={iaqTitle}
-            value={typeof iaq === "number" ? iaq : '...'}
+            value={typeof iaq === 'number' ? iaq : '...'}
             className="mt-6 p-6"
             valueClassName="text-6xl"
             accentColor={iaqColors?.accent}
@@ -183,7 +185,7 @@ export default function Dashboard() {
               iaqColors
                 ? {
                   backgroundColor: iaqColors.bg,
-                  borderColor: iaqColors.border
+                  borderColor: iaqColors.border,
                 }
                 : undefined
             }

@@ -1,3 +1,20 @@
+const SYSTEM_IAQ_DEFAULTS = {
+    // Fixed, system-managed IAQ parameters.
+    temp_a: 22,
+    temp_b: 26,
+    temp_c: 32,
+    temp_d: 38,
+    hum_a: 30,
+    hum_b: 40,
+    hum_c: 60,
+    hum_d: 85,
+    dust_good: 0.05,
+    dust_bad: 0.20,
+    gas_good: 300,
+    gas_bad: 1500,
+    iaq_safe: 80,
+    iaq_warn: 60,
+};
 function clamp100(x) {
     if (!Number.isFinite(x))
         return 0;
@@ -70,58 +87,35 @@ function scoreTrapezoid2Sided(x, a, b, c, d) {
         return clamp100((100 * (D - x)) / (D - C));
     return 0;
 }
-export function iaqCalculate(temp, hum, dust, gas, s) {
+export function iaqCalculate(temp, hum, dust, gas) {
     if (typeof temp === 'undefined' ||
         typeof hum === 'undefined' ||
         typeof dust === 'undefined' ||
-        typeof gas === 'undefined')
+        typeof gas === 'undefined') {
         return undefined;
-    // Defaults (should normally come from Settings)
-    const cfg = s;
-    const tempScore = scoreTrapezoid2Sided(temp, cfg?.temp_a ?? 16, cfg?.temp_b ?? 22, cfg?.temp_c ?? 26, cfg?.temp_d ?? 32);
-    const humScore = scoreTrapezoid2Sided(hum, cfg?.hum_a ?? 30, cfg?.hum_b ?? 40, cfg?.hum_c ?? 60, cfg?.hum_d ?? 70);
-    const dustScore = scoreDecreasing1Sided(dust, cfg?.dust_good ?? 0.03, cfg?.dust_bad ?? 0.15);
-    const gasScore = scoreDecreasing1Sided(gas, cfg?.gas_good ?? 200, cfg?.gas_bad ?? 1000);
-    const method = cfg?.iaq_method ?? 'MIN';
-    if (method === 'MIN') {
-        return Math.trunc(Math.min(tempScore, humScore, dustScore, gasScore));
     }
-    // Weighted harmonic mean: smoother than MIN, but still punishes low scores strongly.
-    const wTemp = Math.max(0, Number(cfg?.w_temp ?? 0.25));
-    const wHum = Math.max(0, Number(cfg?.w_hum ?? 0.25));
-    const wDust = Math.max(0, Number(cfg?.w_dust ?? 0.25));
-    const wGas = Math.max(0, Number(cfg?.w_gas ?? 0.25));
-    const sumW = wTemp + wHum + wDust + wGas;
-    if (!(sumW > 0)) {
-        return Math.trunc(Math.min(tempScore, humScore, dustScore, gasScore));
-    }
-    const eps = 0.1; // avoid division by 0
-    const denom = (wTemp / Math.max(eps, tempScore)) +
-        (wHum / Math.max(eps, humScore)) +
-        (wDust / Math.max(eps, dustScore)) +
-        (wGas / Math.max(eps, gasScore));
-    const iaq = sumW / denom;
-    return Math.trunc(clamp100(iaq));
+    const tempScore = scoreTrapezoid2Sided(temp, SYSTEM_IAQ_DEFAULTS.temp_a, SYSTEM_IAQ_DEFAULTS.temp_b, SYSTEM_IAQ_DEFAULTS.temp_c, SYSTEM_IAQ_DEFAULTS.temp_d);
+    const humScore = scoreTrapezoid2Sided(hum, SYSTEM_IAQ_DEFAULTS.hum_a, SYSTEM_IAQ_DEFAULTS.hum_b, SYSTEM_IAQ_DEFAULTS.hum_c, SYSTEM_IAQ_DEFAULTS.hum_d);
+    const dustScore = scoreDecreasing1Sided(dust, SYSTEM_IAQ_DEFAULTS.dust_good, SYSTEM_IAQ_DEFAULTS.dust_bad);
+    const gasScore = scoreDecreasing1Sided(gas, SYSTEM_IAQ_DEFAULTS.gas_good, SYSTEM_IAQ_DEFAULTS.gas_bad);
+    return Math.trunc(Math.min(tempScore, humScore, dustScore, gasScore));
 }
-export function iaqToLevel(IAQ, s) {
+export function iaqToLevel(IAQ) {
     if (IAQ === undefined || IAQ == null)
         return undefined;
-    const safeRaw = Number(s?.iaq_safe ?? 80);
-    const warnRaw = Number(s?.iaq_warn ?? 60);
-    const warn = clamp100(warnRaw);
-    const safe = clamp100(Math.max(safeRaw, warnRaw));
-    return IAQ >= safe ? "SAFE" : IAQ >= warn ? "WARN" : "DANGER";
+    const warn = clamp100(SYSTEM_IAQ_DEFAULTS.iaq_warn);
+    const safe = clamp100(Math.max(SYSTEM_IAQ_DEFAULTS.iaq_safe, SYSTEM_IAQ_DEFAULTS.iaq_warn));
+    return IAQ >= safe ? 'SAFE' : IAQ >= warn ? 'WARN' : 'DANGER';
 }
 export class TelemetryProcessor {
-    ingest(t, settings) {
-        const IAQ = iaqCalculate(t.temp, t.hum, t.dust, t.gas, settings);
-        const level = iaqToLevel(IAQ, settings);
-        const res = {
+    ingest(t) {
+        const IAQ = iaqCalculate(t.temp, t.hum, t.dust, t.gas);
+        const level = iaqToLevel(IAQ);
+        return {
             ...t,
-            IAQ: IAQ,
-            level: level
+            IAQ,
+            level,
         };
-        return res;
     }
 }
 export const processor = new TelemetryProcessor();

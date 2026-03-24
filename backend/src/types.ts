@@ -39,40 +39,15 @@ export interface AlertItem {
   level: 'SAFE' | 'WARN' | 'DANGER';
 }
 
-export interface IaqSettings {
+export interface DeviceSettings {
   device_id: string;
-
-  // ===== IAQ formula (0..100, 100 is best) =====
-  iaq_method: 'MIN' | 'WEIGHTED_HARMONIC';
-
-  // Weights
-  w_temp: number;
-  w_hum: number;
-  w_dust: number;
-  w_gas: number;
-
-  // Trapezoid scoring for temp/humidity: a < b <= c < d
-  temp_a: number;
-  temp_b: number;
-  temp_c: number;
-  temp_d: number;
-  hum_a: number;
-  hum_b: number;
-  hum_c: number;
-  hum_d: number;
-
-  // One-sided decreasing scoring for dust/gas: good < bad
-  dust_good: number;
-  dust_bad: number;
-  gas_good: number;
-  gas_bad: number;
-
-  // IAQ -> level thresholds
-  iaq_safe: number;
-  iaq_warn: number;
+  led_enabled: boolean;
+  buzzer_enabled: boolean;
 }
 
-export type ThresholdSettings = IaqSettings;
+// Backward-compatible aliases for older imports.
+export type IaqSettings = DeviceSettings;
+export type ThresholdSettings = DeviceSettings;
 
 export interface HistoryQuery {
   device_id: string;

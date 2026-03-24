@@ -1,7 +1,7 @@
 import mqtt, { MqttClient, type IClientOptions } from 'mqtt';
 import { type Telemetry } from './types.js';
 import * as store from './store.js';
-import { processor, iaqToLevel } from './telemetryProcessor.js';
+import { processor } from './telemetryProcessor.js';
 import { broadcastToDevice } from './websocket.js';
 import * as repo from './repo.js';
 import { dbEnabled } from './db.js';
@@ -14,7 +14,6 @@ function publishToEsp32(deviceId: string, payloadObj: any) {
         if (err) console.error('[MQTT] Publish to ESP32 error:', err);
     });
 }
-
 
 function normalizeTelemetry(raw: any): Telemetry | null {
     if (!raw) return null;
@@ -40,6 +39,7 @@ function normalizeTelemetry(raw: any): Telemetry | null {
         dust: n(raw.dust),
     };
 }
+
 let gClient: MqttClient | null = null;
 
 export function startMqttClient(mqttUrl: string, topicSub: string): void {
@@ -74,27 +74,30 @@ export function startMqttClient(mqttUrl: string, topicSub: string): void {
                 if (!telemetry) return; // wrong format
                 console.log(JSON.stringify(telemetry));
 
-                // get setting if existed
-                let settings = store.peekSettings(telemetry.deviceId);
-                if (!settings && dbEnabled()) {
+                let deviceSettings = store.peekSettings(telemetry.deviceId);
+                if (!deviceSettings && dbEnabled()) {
                     try {
-                        const dbS = await repo.getSettings(telemetry.deviceId);
-                        if (dbS) {
-                            store.setSettings(telemetry.deviceId, dbS);
-                            settings = dbS;
+                        const dbSettings = await repo.getSettings(telemetry.deviceId);
+                        if (dbSettings) {
+                            store.setSettings(telemetry.deviceId, dbSettings);
+                            deviceSettings = dbSettings;
                         }
-                    } catch { }
+                    } catch {
+                        // ignore settings lookup errors for realtime path
+                    }
                 }
-                if (!settings) settings = store.getSettings(telemetry.deviceId);
-                const processed = processor.ingest(telemetry, settings);
+                if (!deviceSettings) deviceSettings = store.getSettings(telemetry.deviceId);
 
-                // reply any esp32 even not registered
+                const processed = processor.ingest(telemetry);
+
+                // Reply to ESP32 even if the device has not been registered in the dashboard.
                 publishToEsp32(telemetry.deviceId, {
-                    ts: telemetry.ts ?? telemetry.ts,
+                    ts: telemetry.ts,
                     iaq: processed.IAQ,
-                    level: processed.level
+                    level: processed.level,
+                    led_enabled: deviceSettings.led_enabled,
+                    buzzer_enabled: deviceSettings.buzzer_enabled,
                 });
-
 
                 // save into db if has been registered
                 const registered = dbEnabled()
@@ -119,7 +122,7 @@ export function startMqttClient(mqttUrl: string, topicSub: string): void {
             } catch (err) {
                 console.error(
                     '[MQTT] Message handling error:',
-                    { error: err instanceof Error ? err.message : String(err), payload: text, }
+                    { error: err instanceof Error ? err.message : String(err), payload: text }
                 );
             }
         })();

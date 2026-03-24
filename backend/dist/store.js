@@ -29,32 +29,8 @@ export function parseIntervalToSec(interval) {
 function defaultSettings(device_id) {
     return {
         device_id,
-        // ===== IAQ formula defaults (tuned for outdoor TP.HCM by default) =====
-        iaq_method: 'WEIGHTED_HARMONIC',
-        // Make dust/gas more important for outdoor city air.
-        w_temp: 0.10,
-        w_hum: 0.10,
-        w_dust: 0.45,
-        w_gas: 0.35,
-        // Temperature in TP.HCM is commonly higher than "indoor comfort".
-        // We keep a broad good band and low weight.
-        temp_a: 22,
-        temp_b: 26,
-        temp_c: 32,
-        temp_d: 38,
-        // Humidity is often high in TP.HCM; again, low weight.
-        hum_a: 40,
-        hum_b: 55,
-        hum_c: 80,
-        hum_d: 95,
-        // Dust is stored as mg/m3. 0.05 mg/m3 = 50 ug/m3.
-        dust_good: 0.05,
-        dust_bad: 0.20,
-        // MQ-2 ppm is relative; defaults are a practical starting point.
-        gas_good: 300,
-        gas_bad: 1500,
-        iaq_safe: 80,
-        iaq_warn: 60,
+        led_enabled: false,
+        buzzer_enabled: false,
     };
 }
 // Device functions
@@ -86,7 +62,7 @@ export function upsertDevice(deviceId, data) {
     const last_seen = nowTs();
     const next = {
         device_id: deviceId,
-        name: data?.name ?? prev?.name ?? "",
+        name: data?.name ?? prev?.name ?? '',
         last_seen,
         status: 'online', // will be recomputed later
     };
@@ -99,7 +75,7 @@ export function updateDevice(deviceId, patch) {
         return null;
     const next = {
         ...prev,
-        name: patch.name ?? prev.name ?? "",
+        name: patch.name ?? prev.name ?? '',
     };
     devices.set(deviceId, next);
     return next;
@@ -197,7 +173,11 @@ export function setSettings(deviceId, s) {
 }
 export function updateSettings(deviceId, patch) {
     const current = getSettings(deviceId);
-    const next = { ...current, ...patch, device_id: deviceId };
+    const next = {
+        ...current,
+        ...patch,
+        device_id: deviceId,
+    };
     settingsByDevice.set(deviceId, next);
     return next;
 }

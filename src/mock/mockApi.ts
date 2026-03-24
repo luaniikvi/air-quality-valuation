@@ -1,35 +1,17 @@
-import type { AlertItem, Device, HistoryQuery, HistoryResponse, IaqSettings, Processed } from '../types';
+import type { AlertItem, Device, HistoryQuery, HistoryResponse, DeviceSettings, Processed } from '../types';
 // Pure functions (no Node-only APIs) -> safe to reuse for mock generation
 import { iaqCalculate, iaqToLevel } from '../../backend/src/telemetryProcessor';
 
 // Start EMPTY: user must add devices manually.
 const devices: Device[] = [];
 
-const settingsMap: Record<string, IaqSettings> = {};
+const settingsMap: Record<string, DeviceSettings> = {};
 
-function defaultSettings(device_id: string): IaqSettings {
+function defaultSettings(device_id: string): DeviceSettings {
   return {
     device_id,
-
-    iaq_method: 'WEIGHTED_HARMONIC',
-    w_temp: 0.10,
-    w_hum: 0.10,
-    w_dust: 0.45,
-    w_gas: 0.35,
-    temp_a: 22,
-    temp_b: 26,
-    temp_c: 32,
-    temp_d: 38,
-    hum_a: 40,
-    hum_b: 55,
-    hum_c: 80,
-    hum_d: 95,
-    dust_good: 0.05,
-    dust_bad: 0.20,
-    gas_good: 300,
-    gas_bad: 1500,
-    iaq_safe: 80,
-    iaq_warn: 60,
+    led_enabled: false,
+    buzzer_enabled: false,
   };
 }
 
@@ -57,7 +39,8 @@ function parseIntervalToSec(interval?: string): number {
 }
 
 function makeReading(device_id: string, ts = Math.trunc(Date.now() / 1000)): Processed {
-  const s = settingsMap[device_id] ?? (settingsMap[device_id] = defaultSettings(device_id));
+  if (!settingsMap[device_id]) settingsMap[device_id] = defaultSettings(device_id);
+
   const prev = lastByDevice[device_id];
   const randomData: number[] = [
     25 + rand(3),
@@ -74,8 +57,8 @@ function makeReading(device_id: string, ts = Math.trunc(Date.now() / 1000)): Pro
       hum: randomData[1],
       gas: randomData[2],
       dust: randomData[3],
-      IAQ: iaqCalculate(randomData[0], randomData[1], randomData[3], randomData[2], s),
-      level: iaqToLevel(iaqCalculate(randomData[0], randomData[1], randomData[3], randomData[2], s), s)
+      IAQ: iaqCalculate(randomData[0], randomData[1], randomData[3], randomData[2]),
+      level: iaqToLevel(iaqCalculate(randomData[0], randomData[1], randomData[3], randomData[2]))
     };
 
   const temp = step(base.temp ?? 25, 0.2, 10, 45);
@@ -83,20 +66,17 @@ function makeReading(device_id: string, ts = Math.trunc(Date.now() / 1000)): Pro
   const gas = step(base.gas ?? 600, 15, 200, 2000);
   const dust = step(base.dust ?? 0.04, 0.002, 0, 0.3);
 
-
+  const iaq = iaqCalculate(temp, hum, dust, gas);
   const reading: Processed = {
     deviceId: device_id,
-    ts: ts,
+    ts,
     temp: Math.round(temp * 10) / 10,
     hum: Math.round(hum * 10) / 10,
     gas: Math.round(gas),
     dust: Math.round(dust * 1000) / 1000,
-    IAQ: iaqCalculate(temp, hum, dust, gas, s),
-    level: iaqToLevel(iaqCalculate(temp, hum, dust, gas, s), s)
+    IAQ: iaq,
+    level: iaqToLevel(iaq)
   };
-  const iaq = iaqCalculate(reading.temp, reading.hum, reading.dust, reading.gas, s);
-  reading.IAQ = iaq;
-  reading.level = iaqToLevel(reading.IAQ, s);
 
   lastByDevice[device_id] = reading;
   return reading;
@@ -121,10 +101,7 @@ export async function addDevice(payload: Device): Promise<Device> {
   };
 
   devices.unshift(dev);
-
-  // Default settings for the new device
   settingsMap[id] = defaultSettings(id);
-
   return dev;
 }
 
@@ -139,8 +116,6 @@ export async function disconnectDevice(device_id: string): Promise<{ ok: true }>
 
   return { ok: true };
 }
-
-
 
 export async function updateDevice(device_id: string, patch: Partial<Device>): Promise<Device> {
   const id = String(device_id || '').trim();
@@ -204,14 +179,18 @@ export async function getAlerts(device_id: string, from: string, to: string): Pr
   return items.sort((a, b) => (a.ts < b.ts ? 1 : -1));
 }
 
-export async function getSettings(device_id: string): Promise<IaqSettings> {
+export async function getSettings(device_id: string): Promise<DeviceSettings> {
   const id = String(device_id || '').trim();
   if (!id) throw new Error('device_id is required');
   if (!settingsMap[id]) settingsMap[id] = defaultSettings(id);
   return settingsMap[id];
 }
 
-export async function saveSettings(payload: IaqSettings): Promise<{ ok: true }> {
-  settingsMap[payload.device_id] = payload;
+export async function saveSettings(payload: DeviceSettings): Promise<{ ok: true }> {
+  settingsMap[payload.device_id] = {
+    device_id: payload.device_id,
+    led_enabled: !!payload.led_enabled,
+    buzzer_enabled: !!payload.buzzer_enabled,
+  };
   return { ok: true };
 }

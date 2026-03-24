@@ -1,5 +1,5 @@
 // store.ts
-import type { AlertItem, Device, Processed, IaqSettings } from './types.js';
+import type { AlertItem, Device, Processed, DeviceSettings } from './types.js';
 
 // In-memory maps
 let nextAlertId = 1;
@@ -7,7 +7,7 @@ const devices = new Map<string, Device>();
 const latestByDevice = new Map<string, Processed>();
 const historyByDevice = new Map<string, Processed[]>();
 const alertsByDevice = new Map<string, AlertItem[]>();
-const settingsByDevice = new Map<string, IaqSettings>();
+const settingsByDevice = new Map<string, DeviceSettings>();
 
 // Utility functions
 export function nowTs(): number {
@@ -27,42 +27,11 @@ export function parseIntervalToSec(interval?: string): number {
     return value * 3600;
 }
 
-function defaultSettings(device_id: string): IaqSettings {
+function defaultSettings(device_id: string): DeviceSettings {
     return {
         device_id,
-
-        // ===== IAQ formula defaults (tuned for outdoor TP.HCM by default) =====
-        iaq_method: 'WEIGHTED_HARMONIC',
-
-        // Make dust/gas more important for outdoor city air.
-        w_temp: 0.10,
-        w_hum: 0.10,
-        w_dust: 0.45,
-        w_gas: 0.35,
-
-        // Temperature in TP.HCM is commonly higher than "indoor comfort".
-        // We keep a broad good band and low weight.
-        temp_a: 22,
-        temp_b: 26,
-        temp_c: 32,
-        temp_d: 38,
-
-        // Humidity is often high in TP.HCM; again, low weight.
-        hum_a: 40,
-        hum_b: 55,
-        hum_c: 80,
-        hum_d: 95,
-
-        // Dust is stored as mg/m3. 0.05 mg/m3 = 50 ug/m3.
-        dust_good: 0.05,
-        dust_bad: 0.20,
-
-        // MQ-2 ppm is relative; defaults are a practical starting point.
-        gas_good: 300,
-        gas_bad: 1500,
-
-        iaq_safe: 80,
-        iaq_warn: 60,
+        led_enabled: false,
+        buzzer_enabled: false,
     };
 }
 
@@ -97,7 +66,7 @@ export function upsertDevice(deviceId: string, data?: Partial<Device>): Device {
     const last_seen = nowTs();
     const next: Device = {
         device_id: deviceId,
-        name: data?.name ?? prev?.name ?? "",
+        name: data?.name ?? prev?.name ?? '',
         last_seen,
         status: 'online', // will be recomputed later
     };
@@ -110,7 +79,7 @@ export function updateDevice(deviceId: string, patch: Partial<Device>): Device |
     if (!prev) return null;
     const next: Device = {
         ...prev,
-        name: patch.name ?? prev.name ?? "",
+        name: patch.name ?? prev.name ?? '',
     };
     devices.set(deviceId, next);
     return next;
@@ -199,7 +168,7 @@ export function getAlerts(deviceId: string, fromSec?: number, toSec?: number): A
 }
 
 // Settings
-export function getSettings(deviceId: string): IaqSettings {
+export function getSettings(deviceId: string): DeviceSettings {
     const s = settingsByDevice.get(deviceId);
     if (s) return s;
     const d = defaultSettings(deviceId);
@@ -208,17 +177,21 @@ export function getSettings(deviceId: string): IaqSettings {
 }
 
 // Return cached settings without creating defaults.
-export function peekSettings(deviceId: string): IaqSettings | undefined {
+export function peekSettings(deviceId: string): DeviceSettings | undefined {
     return settingsByDevice.get(deviceId);
 }
 
-export function setSettings(deviceId: string, s: IaqSettings): void {
+export function setSettings(deviceId: string, s: DeviceSettings): void {
     settingsByDevice.set(deviceId, { ...s, device_id: deviceId });
 }
 
-export function updateSettings(deviceId: string, patch: Partial<IaqSettings>): IaqSettings {
+export function updateSettings(deviceId: string, patch: Partial<DeviceSettings>): DeviceSettings {
     const current = getSettings(deviceId);
-    const next = { ...current, ...patch, device_id: deviceId };
+    const next: DeviceSettings = {
+        ...current,
+        ...patch,
+        device_id: deviceId,
+    };
     settingsByDevice.set(deviceId, next);
     return next;
 }
