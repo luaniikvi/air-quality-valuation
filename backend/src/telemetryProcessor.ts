@@ -13,8 +13,8 @@ const SYSTEM_IAQ_DEFAULTS = {
     hum_d: 85,
     dust_good: 0.05,
     dust_bad: 0.20,
-    gas_good: 300,
-    gas_bad: 1500,
+    gas_good: 120,
+    gas_bad: 1000,
     iaq_safe: 80,
     iaq_warn: 60,
 } as const;
