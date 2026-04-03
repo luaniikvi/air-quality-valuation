@@ -2,11 +2,11 @@ const SYSTEM_IAQ_DEFAULTS = {
     // Fixed, system-managed IAQ parameters.
     temp_a: 22,
     temp_b: 26,
-    temp_c: 32,
+    temp_c: 29,
     temp_d: 38,
     hum_a: 30,
     hum_b: 40,
-    hum_c: 60,
+    hum_c: 65,
     hum_d: 85,
     dust_good: 0.05,
     dust_bad: 0.20,

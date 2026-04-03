@@ -1,67 +1,19 @@
-// import { processor } from "./telemetryProcessor.js";
-// export const cac: number = 0;
-// console.log(processor.ingest({
-//     deviceId: "test2",
-//     ts: Date.now(),
-//     temp: 24.8,
-//     hum: 41.5,
-//     dust: 0,
-//     gas: 401
-// })) // 100-SAFE
-import mysql from "mysql2/promise";
-const pool = mysql.createPool({
-    host: "localhost",
-    user: "root",
-    password: "3014",
-    database: "air_quality_monitor",
-    waitForConnections: true,
-    connectionLimit: 10,
-});
-export async function insertTelemetry(t) {
-    const sql = `
-    INSERT INTO telemetry (device_id, ts, temp, hum, gas, dust, iaq, level)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-    const ts = t.ts ?? Math.floor(Date.now() / 1000);
-    const [result] = await pool.execute(sql, [
-        t.deviceId,
-        ts,
-        t.temp,
-        t.hum,
-        t.gas,
-        t.dust,
-        t.iaq,
-        t.level,
-    ]);
-    return result.insertId; // id vừa tạo
-}
-export async function insertDevice(t) {
-    const sql = `
-    INSERT INTO devices (device_id, name, created_ts, last_seen_ts)
-    VALUES (?, ?, ?, ?)
-  `;
-    const ts = Math.floor(Date.now() / 1000);
-    const [result] = await pool.execute(sql, [
-        t.deviceId,
-        'no name',
-        ts,
-        ts
-    ]);
-    return result.insertId; // id vừa tạo
-}
-// Ví dụ gọi:
-(async () => {
-    console.log('before');
-    const id = await insertDevice({
-        deviceId: "esp32-test",
-        temp: 27.5,
-        hum: 60.2,
-        gas: 120.0,
-        dust: 35.4,
-        iaq: 42,
-        level: "SAFE",
+import mqtt from "mqtt";
+import { performance } from "node:perf_hooks";
+const client = mqtt.connect("mqtt://broker.emqx.io:1883");
+const PUB_TOPIC = "hluan/aqm/esp32-test/telemetry";
+const SUB_TOPIC = "hluan/aqm/esp32-test/down";
+let sendTime = 0;
+client.on("connect", () => {
+    console.log("Connected");
+    client.subscribe(SUB_TOPIC, () => {
+        console.log("Subscribed");
+        // bắt đầu đo
+        sendTime = performance.now();
+        client.publish(PUB_TOPIC, JSON.stringify({ "deviceId": "esp32-test", "ts": 0, "temp": 33.1, "hum": 65.8, "gas": 5.736369, "dust": 0 }), { qos: 0 });
     });
-    console.log("Inserted id =", id);
-    await true;
-})();
+});
+client.on("message", (topic, message) => {
+    console.log(performance.now() - sendTime);
+});
 //# sourceMappingURL=test.js.map
