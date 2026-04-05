@@ -1,32 +1,63 @@
-import mqtt from "mqtt";
-import { performance } from "node:perf_hooks";
+import mysql from "mysql2/promise";
 
-const client = mqtt.connect("mqtt://broker.emqx.io:1883");
+type LatencyStats = {
+    avg: number;
+    p50: number;
+    p95: number;
+    p99: number;
+    max: number;
+};
 
-const PUB_TOPIC = "hluan/aqm/esp32-test/telemetry";
-const SUB_TOPIC = "hluan/aqm/esp32-test/down";
+function calculateStats(times: number[]): LatencyStats {
+    const sorted = [...times].sort((a, b) => a - b);
 
-let sendTime = 0;
+    const percentile = (p: number) =>
+        sorted[Math.floor((p / 100) * sorted.length)];
 
-client.on("connect", () => {
-    console.log("Connected");
+    const sum = times.reduce((a, b) => a + b, 0);
 
-    client.subscribe(SUB_TOPIC, () => {
-        console.log("Subscribed");
+    return {
+        avg: sum / times.length,
+        p50: percentile(50)!,
+        p95: percentile(95)!,
+        p99: percentile(99)!,
+        max: sorted[sorted.length - 1]!,
+    };
+}
 
-        // bắt đầu đo
-
-        sendTime = performance.now();
-        client.publish(
-            PUB_TOPIC,
-            JSON.stringify({ "deviceId": "esp32-test", "ts": 0, "temp": 33.1, "hum": 65.8, "gas": 5.736369, "dust": 0 }),
-            { qos: 0 }
-        );
-
-
+async function testDbLatency() {
+    const connection = await mysql.createPool({
+        host: "localhost",
+        user: "root",
+        password: "3014",
+        database: "air_quality_monitor",
+        connectionLimit: 10,
     });
-});
 
-client.on("message", (topic, message) => {
-    console.log(performance.now() - sendTime)
-});
+    const iterations = 100; // số lần test
+    const times: number[] = [];
+
+    for (let i = 0; i < iterations; i++) {
+        const start = process.hrtime.bigint();
+
+        await connection.query("SELECT * FROM air_quality_monitor.telemetry WHERE device_id = ?", ['esp32-001']);
+
+        const end = process.hrtime.bigint();
+
+        const latencyMs = Number(end - start) / 1e6;
+        times.push(latencyMs);
+    }
+
+    const stats = calculateStats(times);
+
+    console.log("📊 MySQL Latency Stats:");
+    console.log(`Avg:  ${stats.avg.toFixed(2)} ms`);
+    console.log(`P50:  ${stats.p50.toFixed(2)} ms`);
+    console.log(`P95:  ${stats.p95.toFixed(2)} ms`);
+    console.log(`P99:  ${stats.p99.toFixed(2)} ms`);
+    console.log(`Max:  ${stats.max.toFixed(2)} ms`);
+
+    await connection.end();
+}
+
+testDbLatency().catch(console.error);
